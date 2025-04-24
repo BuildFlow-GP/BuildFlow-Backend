@@ -1,39 +1,32 @@
-const { Sequelize, DataTypes } = require('sequelize');
-const config = require('../config/db.config.js');
-
-const sequelize = new Sequelize(config.DB, config.USER, config.PASSWORD, {
-  host: config.HOST,
-  dialect: 'postgres',
-  logging: false,
-});
+const Sequelize = require('sequelize');
+const sequelize = require('../config/db.config');
 
 const db = {};
-
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-// Import models
-db.Userss = require('./userss.model.js')(sequelize, DataTypes);
-db.Offices = require('./offices.model.js')(sequelize, DataTypes);
-db.Companies = require('./companies.model.js')(sequelize, DataTypes);
-db.Projects = require('./projects.model.js')(sequelize, DataTypes);
-db.Reviews = require('./reviews.model.js')(sequelize, DataTypes);
-db.Notifications = require('./notifications.model.js')(sequelize, DataTypes);
+// Models
+db.User = require('./user.model')(sequelize, Sequelize.DataTypes);
+db.Office = require('./office.model')(sequelize, Sequelize.DataTypes);
+db.Company = require('./company.model')(sequelize, Sequelize.DataTypes);
+db.Project = require('./project.model')(sequelize, Sequelize.DataTypes);
+db.Review = require('./review.model')(sequelize, Sequelize.DataTypes);
+db.Notification = require('./notification.model')(sequelize, Sequelize.DataTypes);
 
-// Define relations
-db.Userss.hasMany(db.Projects, { foreignKey: 'user_id' });
-db.Projects.belongsTo(db.Userss, { foreignKey: 'user_id' });
+// Relations
+db.User.hasMany(db.Project, { foreignKey: 'user_id' });
+db.Office.hasMany(db.Project, { foreignKey: 'office_id' });
+db.Company.hasMany(db.Project, { foreignKey: 'company_id' });
 
-db.Offices.hasMany(db.Projects, { foreignKey: 'office_id' });
-db.Projects.belongsTo(db.Offices, { foreignKey: 'office_id' });
+db.User.hasMany(db.Review, { foreignKey: 'user_id' });
+db.Company.hasMany(db.Review, { foreignKey: 'company_id' });
+db.Project.hasMany(db.Review, { foreignKey: 'project_id' });
 
-db.Companies.hasMany(db.Projects, { foreignKey: 'company_id' });
-db.Projects.belongsTo(db.Companies, { foreignKey: 'company_id' });
+db.User.hasMany(db.Notification, { foreignKey: 'user_id' });
 
-db.Userss.hasMany(db.Reviews, { foreignKey: 'user_id' });
-db.Companies.hasMany(db.Reviews, { foreignKey: 'company_id' });
-db.Projects.hasMany(db.Reviews, { foreignKey: 'project_id' });
-
-db.Userss.hasMany(db.Notifications, { foreignKey: 'user_id' });
+// Sync the schema (optional in dev)
+db.sequelize.sync({ alter: true }).then(() => {
+  console.log('Database & tables synced!');
+});
 
 module.exports = db;
