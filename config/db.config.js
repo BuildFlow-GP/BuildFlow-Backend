@@ -11,7 +11,7 @@ const sequelize = new Sequelize(
     dialect: 'postgres',
     define: {
       freezeTableName: true, // prevent pluralization
-      schema: 'BuildFlow'    // use your schema
+      schema: 'buildflow'    // use your schema
     },
     logging: false, // Set to true for SQL debug
   }

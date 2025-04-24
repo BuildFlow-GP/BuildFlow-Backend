@@ -3,6 +3,7 @@ const express = require('express');
 const app = express();
 const authRoutes = require('./routes/signRoute');
 const cors = require('cors');
+console.log("ENV SCHEMA:", process.env.DB_SCHEMA);
 
 app.use(cors());
 app.use(express.json());

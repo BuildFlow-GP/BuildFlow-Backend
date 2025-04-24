@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 const pool = require('../config/db.config');
 const router = express.Router();
 
+
+
 const schema = process.env.DB_SCHEMA;
 // JWT Helper
 const generateToken = (userId) => {
@@ -72,6 +74,9 @@ router.post('/signup', async (req, res) => {
 // =======================
 router.post('/login', async (req, res) => {
   const { email, password, userType } = req.body;
+  console.log('BODY:', req.body);
+console.log('EMAIL:', email);
+
 
   if (!userType || !['Individual', 'Company', 'Office'].includes(userType)) {
     return res.status(400).json({ error: 'Invalid or missing userType' });

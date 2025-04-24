@@ -1,8 +1,8 @@
--- Table: BuildFlow.userss
+-- Table: buildflow.userss
 
--- DROP TABLE IF EXISTS "BuildFlow".userss;
+-- DROP TABLE IF EXISTS "buildflow".userss;
 
-CREATE TABLE IF NOT EXISTS "BuildFlow".userss
+CREATE TABLE IF NOT EXISTS "buildflow".userss
 (
     id SERIAL PRIMARY KEY, 
     name VARCHAR(100) NOT NULL, 
@@ -18,12 +18,12 @@ CREATE TABLE IF NOT EXISTS "BuildFlow".userss
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS "BuildFlow".userss
+ALTER TABLE IF EXISTS "buildflow".userss
     OWNER to postgres;
 
 
 -- OFFICES TABLE
-CREATE TABLE IF NOT EXISTS "BuildFlow".offices ( 
+CREATE TABLE IF NOT EXISTS "buildflow".offices ( 
     id SERIAL PRIMARY KEY, 
     name VARCHAR(100) NOT NULL, 
     email VARCHAR(100) UNIQUE NOT NULL, 
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS "BuildFlow".offices (
 );
 
 -- COMPANIES TABLE
-CREATE TABLE IF NOT EXISTS "BuildFlow".companies ( 
+CREATE TABLE IF NOT EXISTS "buildflow".companies ( 
     id SERIAL PRIMARY KEY, 
     name VARCHAR(100) NOT NULL, 
     email VARCHAR(100), 
@@ -59,11 +59,11 @@ CREATE TABLE IF NOT EXISTS "BuildFlow".companies (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 );
 -- PROJECTS TABLE
-CREATE TABLE IF NOT EXISTS "BuildFlow".projects ( 
+CREATE TABLE IF NOT EXISTS "buildflow".projects ( 
     id SERIAL PRIMARY KEY, 
-    user_id INT REFERENCES "BuildFlow".userss(id), 
-    office_id INT REFERENCES "BuildFlow".offices(id), 
-    company_id INT REFERENCES "BuildFlow".companies(id), 
+    user_id INT REFERENCES "buildflow".userss(id), 
+    office_id INT REFERENCES "buildflow".offices(id), 
+    company_id INT REFERENCES "buildflow".companies(id), 
     name VARCHAR(150) NOT NULL, 
     description TEXT, 
     status VARCHAR(50) DEFAULT 'Pending', 
@@ -79,20 +79,20 @@ CREATE TABLE IF NOT EXISTS "BuildFlow".projects (
 );
 
 -- REVIEWS TABLE
-CREATE TABLE IF NOT EXISTS "BuildFlow".reviews ( 
+CREATE TABLE IF NOT EXISTS "buildflow".reviews ( 
     id SERIAL PRIMARY KEY, 
-    user_id INT REFERENCES "BuildFlow".userss(id), 
-    company_id INT REFERENCES "BuildFlow".companies(id), 
-    project_id INT REFERENCES "BuildFlow".projects(id), 
+    user_id INT REFERENCES "buildflow".userss(id), 
+    company_id INT REFERENCES "buildflow".companies(id), 
+    project_id INT REFERENCES "buildflow".projects(id), 
     rating INT CHECK (rating BETWEEN 1 AND 5), 
     comment TEXT, 
     reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 );
 
 -- NOTIFICATIONS TABLE
-CREATE TABLE IF NOT EXISTS "BuildFlow".notifications ( 
+CREATE TABLE IF NOT EXISTS "buildflow".notifications ( 
     id SERIAL PRIMARY KEY, 
-    user_id INT REFERENCES "BuildFlow".userss(id), 
+    user_id INT REFERENCES "buildflow".userss(id), 
     message TEXT NOT NULL, 
     is_read BOOLEAN DEFAULT FALSE, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
@@ -102,7 +102,7 @@ CREATE TABLE IF NOT EXISTS "BuildFlow".notifications (
 
 
 --Users
-INSERT INTO "BuildFlow".userss (name, email, password_hash, phone, id_number, bank_account, location, profile_image)
+INSERT INTO "buildflow".userss (name, email, password_hash, phone, id_number, bank_account, location, profile_image)
 VALUES 
 ('Ahmed Al-Saleh', 'ahmed@example.com', 'hashed_pw_1', '05991456', '1234567890', 'PS1234567890123456789012', 'Ramallah', 'images/users/ahmed.jpg'),
 ('Sara Khalil', 'sara@example.com', 'hashed_pw_2', '05994312', '2234567890', 'PS2234567890123456789012', 'Nablus', 'images/users/sara.jpg'),
@@ -116,7 +116,7 @@ VALUES
 ('Rania Shihadeh', 'rania@example.com', 'hashed_pw_10', '05991122', '1034567890', 'PS1034567890123456789012', 'Gaza', 'images/users/rania.jpg');
 
 --Offices 
-INSERT INTO "BuildFlow".offices (name, email, password_hash, phone, location, capacity, rating, is_available, points, bank_account, staff_count, active_projects_count, branches, profile_image)
+INSERT INTO "buildflow".offices (name, email, password_hash, phone, location, capacity, rating, is_available, points, bank_account, staff_count, active_projects_count, branches, profile_image)
 VALUES 
 ('Verona Engineering Office', 'verona@example.com', 'hashed_pw_3', '05997654', 'Al-Badhan - Al-Fara Street', 20, 4.5, TRUE, 120, 'PS1122334455667788990011', 10, 2, '', 'images/offices/v.jpg'),
 ('Pioneering Engineers Office (PEAK)', 'infopeak@example.com', 'hashed_pw_4', '05994561', 'Nablus', 15, 4.8, TRUE, 95, 'PS2233445566778899001122', 8, 1, 'Nablus, Tobas, Hebron', 'images/offices/fb.jpg'),
@@ -131,7 +131,7 @@ VALUES
 
 
 --Companies 
-INSERT INTO "BuildFlow".companies (name, email, phone, password_hash, description, rating, company_type, location, bank_account, staff_count, created_at, profile_image)
+INSERT INTO "buildflow".companies (name, email, phone, password_hash, description, rating, company_type, location, bank_account, staff_count, created_at, profile_image)
 VALUES
 ('Arab Contractors Palestine', 'acp@example.com', '05998765', 'hashed_pw_1', 'Leading construction company with regional projects.', 4.7, 'Construction', 'Ramallah', 'PS1122334455667788990001', 50, CURRENT_TIMESTAMP, 'images/companies/acp.jpg'),
 ('Jerusalem Engineers Co.', 'jec@example.com', '05997654', 'hashed_pw_2', 'Specialized in architectural design and supervision.', 4.5, 'Engineering', 'Jerusalem', 'PS2233445566778899001122', 30, CURRENT_TIMESTAMP, 'images/companies/jec.jpg'),
@@ -146,7 +146,7 @@ VALUES
 
 
 --Projects 
-INSERT INTO "BuildFlow".projects (name, description, start_date, end_date, status, budget, location, office_id, company_id, user_id)
+INSERT INTO "buildflow".projects (name, description, start_date, end_date, status, budget, location, office_id, company_id, user_id)
 VALUES
 ('Ahmed Al-Saleh''s House Construction', 'Construction of a residential house for Ahmed Al-Saleh in Ramallah.', '2024-06-01', '2025-06-01', 'In Progress', 500000, 'Ramallah', 1, 1, 1),
 ('Sara Khalil''s Villa Project', 'Building a luxurious villa for Sara Khalil in Nablus.', '2024-07-01', '2025-07-01', 'Planning', 300000, 'Nablus', 2, 2, 2),
@@ -161,7 +161,7 @@ VALUES
 
 
 --Reviews
-INSERT INTO "BuildFlow".reviews (user_id, company_id, project_id, rating, comment, reviewed_at)
+INSERT INTO "buildflow".reviews (user_id, company_id, project_id, rating, comment, reviewed_at)
 VALUES 
 (1, 1, 1, 4, 'Great work on the construction of my house.', CURRENT_TIMESTAMP),
 (2, 2, 2, 5, 'Excellent design and execution on my new home.', CURRENT_TIMESTAMP),
@@ -170,7 +170,7 @@ VALUES
 (5, 5, 5, 2, 'Not happy with the renovations. A lot of issues during construction.', CURRENT_TIMESTAMP);
 
 --Notifications 
-INSERT INTO "BuildFlow".notifications (user_id, message, is_read, created_at)
+INSERT INTO "buildflow".notifications (user_id, message, is_read, created_at)
 VALUES
 (1, 'Your house construction project has been updated. Please check for more details.', FALSE, CURRENT_TIMESTAMP),
 (2, 'New office project assigned to you. Please review the project details.', FALSE, CURRENT_TIMESTAMP),
