@@ -1,19 +1,19 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const sequelize = require('../config/db.config'); // Sequelize instance
+const sequelize = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
 const router = express.Router();
 
 const schema = process.env.DB_SCHEMA;
 
-// JWT Helper
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// JWT Token generator
+const generateToken = (userId, userType) => {
+  return jwt.sign({ userId, userType }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // =======================
-// Signup Route
+// Signup
 // =======================
 router.post('/signup', async (req, res) => {
   const { name, email, password, phone, userType } = req.body;
@@ -46,7 +46,6 @@ router.post('/signup', async (req, res) => {
       if (!location || capacity == null) {
         return res.status(400).json({ error: 'Missing location or capacity for office signup' });
       }
-
       query = `
         INSERT INTO "${schema}".offices (name, email, password_hash, phone, location, capacity)
         VALUES (:name, :email, :password_hash, :phone, :location, :capacity)
@@ -64,7 +63,6 @@ router.post('/signup', async (req, res) => {
       message: `${userType} created successfully`,
       user: user[0]
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Signup failed' });
@@ -72,7 +70,7 @@ router.post('/signup', async (req, res) => {
 });
 
 // =======================
-// Login Route
+// Login
 // =======================
 router.post('/login', async (req, res) => {
   const { email, password, userType } = req.body;
@@ -83,7 +81,6 @@ router.post('/login', async (req, res) => {
 
   try {
     let query;
-
     if (userType === 'Individual') {
       query = `SELECT * FROM "${schema}".userss WHERE email = :email`;
     } else if (userType === 'Company') {
@@ -108,14 +105,13 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid password' });
     }
 
-    const token = generateToken(user.id);
+    const token = generateToken(user.id, userType);
 
     res.json({
       message: 'Login successful',
       token,
       user
     });
-
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Login failed' });
