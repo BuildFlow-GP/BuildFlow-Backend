@@ -3,6 +3,8 @@ const express = require('express');
 const app = express();
 const authRoutes = require('./routes/sign.route');
 const profileRoute = require('./routes/profile.route');
+const officeRoutes = require('./routes/office.route'); // or correct path
+
 
 const cors = require('cors');
 console.log("ENV SCHEMA:", process.env.DB_SCHEMA);
@@ -11,6 +13,7 @@ app.use(cors());
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoute);
+app.use('/api', officeRoutes);
 
 
 const PORT = process.env.PORT || 5000;
