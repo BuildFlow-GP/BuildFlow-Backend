@@ -54,7 +54,7 @@ router.get('/:type', async (req, res) => {
         results = await Project.findAll({
           where: {
             [Op.or]: [
-              { title: { [Op.iLike]: `%${q}%` } },
+              { name: { [Op.iLike]: `%${q}%` } },
               { description: { [Op.iLike]: `%${q}%` } },
             ],
           },

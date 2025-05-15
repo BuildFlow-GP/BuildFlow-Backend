@@ -3,7 +3,7 @@ const express = require('express');
 const app = express();
 const authRoutes = require('./routes/sign.route');
 const profileRoute = require('./routes/profile.route');
-const officeRoutes = require('./routes/office.route'); // or correct path
+const officeRoutes = require('./routes/office.route');
 const searchRoutes = require('./routes/search.route');
 
 
