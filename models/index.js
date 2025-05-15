@@ -21,12 +21,14 @@ db.Company.hasMany(db.Project, { foreignKey: 'company_id' });
 db.User.hasMany(db.Review, { foreignKey: 'user_id' });
 db.Company.hasMany(db.Review, { foreignKey: 'company_id' });
 db.Project.hasMany(db.Review, { foreignKey: 'project_id' });
+db.Office.hasMany(db.Review, { foreignKey: 'office_id'});
 
 db.User.hasMany(db.Notification, { foreignKey: 'user_id' });
 
 db.Review.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
 db.Review.belongsTo(db.Company, { foreignKey: 'company_id', as: 'company' });
 db.Review.belongsTo(db.Project, { foreignKey: 'project_id', as: 'project' });
+db.Review.belongsTo(db.Office, { foreignKey: 'office_id', as: 'office' });
 
 
 // Sync the schema (optional in dev)
