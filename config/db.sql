@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS "buildflow".reviews (
 CREATE TABLE IF NOT EXISTS "buildflow".notifications ( 
     id SERIAL PRIMARY KEY, 
     user_id INT REFERENCES "buildflow".userss(id), 
+    office_id INT REFERENCES "buildflow".offices(id),
     message TEXT NOT NULL, 
     is_read BOOLEAN DEFAULT FALSE, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
@@ -161,13 +162,13 @@ VALUES
 
 
 --Reviews
-INSERT INTO "buildflow".reviews (user_id, company_id, project_id, rating, comment, reviewed_at)
+INSERT INTO "buildflow".reviews (user_id,  office_id ,company_id, project_id, rating, comment, reviewed_at)
 VALUES 
-(1, 1, 1, 4, 'Great work on the construction of my house.', CURRENT_TIMESTAMP),
-(2, 2, 2, 5, 'Excellent design and execution on my new home.', CURRENT_TIMESTAMP),
-(3, 3, 3, 3, 'The project took longer than expected, but the quality was decent.', CURRENT_TIMESTAMP),
-(4, 4, 4, 4, 'Very satisfied with the project; some minor issues were resolved.', CURRENT_TIMESTAMP),
-(5, 5, 5, 2, 'Not happy with the renovations. A lot of issues during construction.', CURRENT_TIMESTAMP);
+(1, 1, 1, 1, 4, 'Great work on the construction of my house.', CURRENT_TIMESTAMP),
+(2, 1, 2, 2, 5, 'Excellent design and execution on my new home.', CURRENT_TIMESTAMP),
+(3, 1, 3, 3, 3, 'The project took longer than expected, but the quality was decent.', CURRENT_TIMESTAMP),
+(4, 2, 4, 4, 4, 'Very satisfied with the project; some minor issues were resolved.', CURRENT_TIMESTAMP),
+(5, 2, 5, 5, 2, 'Not happy with the renovations. A lot of issues during construction.', CURRENT_TIMESTAMP);
 
 --Notifications 
 INSERT INTO "buildflow".notifications (user_id, message, is_read, created_at)
