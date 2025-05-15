@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { Review,User,Company, Project} = require('../models');
+const { Review, User, Company, Project, Office } = require('../models');
 const authenticate = require('../middleware/authenticate');
 
-// GET /reviews — Retrieve all reviews
+// ===========================
+// GET /reviews — All Reviews
+// ===========================
 router.get('/', async (req, res) => {
   try {
     const allReviews = await Review.findAll({
@@ -11,6 +13,7 @@ router.get('/', async (req, res) => {
         { model: User, attributes: ['id', 'name'], as: 'user' },
         { model: Company, attributes: ['id', 'name'], as: 'company' },
         { model: Project, attributes: ['id', 'name'], as: 'project' },
+        { model: Office, attributes: ['id', 'name'], as: 'office' },
       ],
       order: [['reviewed_at', 'DESC']],
     });
@@ -21,7 +24,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /reviews/:id — Retrieve a review by ID
+// ===========================
+// GET /reviews/:id — Single Review
+// ===========================
 router.get('/:id', async (req, res) => {
   try {
     const review = await Review.findByPk(req.params.id, {
@@ -29,6 +34,7 @@ router.get('/:id', async (req, res) => {
         { model: User, attributes: ['id', 'name'], as: 'user' },
         { model: Company, attributes: ['id', 'name'], as: 'company' },
         { model: Project, attributes: ['id', 'name'], as: 'project' },
+        { model: Office, attributes: ['id', 'name'], as: 'office' },
       ],
     });
 
@@ -41,19 +47,29 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /reviews — Create a new review (authentication required)
+// ===========================
+// POST /reviews — Create Review
+// ===========================
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { company_id, project_id, rating, comment } = req.body;
+    const { company_id, project_id, office_id, rating, comment } = req.body;
 
-    if (!company_id || !project_id || !rating) {
-      return res.status(400).json({ message: 'Company, project, and rating are required' });
+    // Require at least one of the three IDs
+    if (!company_id && !project_id && !office_id) {
+      return res.status(400).json({
+        message: 'At least one of company_id, project_id, or office_id must be provided',
+      });
+    }
+
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Rating (1-5) is required' });
     }
 
     const newReview = await Review.create({
       user_id: req.user.id,
-      company_id,
-      project_id,
+      company_id: company_id || null,
+      project_id: project_id || null,
+      office_id: office_id || null,
       rating,
       comment,
     });
@@ -65,7 +81,9 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// PUT /reviews/:id — Update a review (only by review owner)
+// ===========================
+// PUT /reviews/:id — Update Review
+// ===========================
 router.put('/:id', authenticate, async (req, res) => {
   try {
     const review = await Review.findByPk(req.params.id);
@@ -86,7 +104,9 @@ router.put('/:id', authenticate, async (req, res) => {
   }
 });
 
-// DELETE /reviews/:id — Delete a review (only by review owner)
+// ===========================
+// DELETE /reviews/:id — Delete Review
+// ===========================
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const review = await Review.findByPk(req.params.id);
@@ -105,12 +125,18 @@ router.delete('/:id', authenticate, async (req, res) => {
   }
 });
 
-// GET /reviews/user/:userId — Get all reviews written by a specific user
+// ===========================
+// GET /reviews/user/:userId — User Reviews
+// ===========================
 router.get('/user/:userId', async (req, res) => {
   try {
     const userReviews = await Review.findAll({
       where: { user_id: req.params.userId },
-      include: [{ model: Company, attributes: ['name'], as: 'company' }],
+      include: [
+        { model: Company, attributes: ['name'], as: 'company' },
+        { model: Project, attributes: ['name'], as: 'project' },
+        { model: Office, attributes: ['name'], as: 'office' },
+      ],
     });
     res.json(userReviews);
   } catch (error) {
@@ -119,7 +145,9 @@ router.get('/user/:userId', async (req, res) => {
   }
 });
 
-// GET /reviews/company/:companyId — Get all reviews for a specific company
+// ===========================
+// GET /reviews/company/:companyId — Company Reviews
+// ===========================
 router.get('/company/:companyId', async (req, res) => {
   try {
     const companyReviews = await Review.findAll({
@@ -133,7 +161,9 @@ router.get('/company/:companyId', async (req, res) => {
   }
 });
 
-// GET /reviews/project/:projectId — Get all reviews for a specific project
+// ===========================
+// GET /reviews/project/:projectId — Project Reviews
+// ===========================
 router.get('/project/:projectId', async (req, res) => {
   try {
     const projectReviews = await Review.findAll({
@@ -144,6 +174,22 @@ router.get('/project/:projectId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching project reviews:', error);
     res.status(500).json({ message: 'Failed to fetch project reviews' });
+  }
+});
+
+// ===========================
+// GET /reviews/office/:officeId — Office Reviews
+// ===========================
+router.get('/office/:officeId', async (req, res) => {
+  try {
+    const officeReviews = await Review.findAll({
+      where: { office_id: req.params.officeId },
+      include: [{ model: User, attributes: ['name'], as: 'user' }],
+    });
+    res.json(officeReviews);
+  } catch (error) {
+    console.error('Error fetching office reviews:', error);
+    res.status(500).json({ message: 'Failed to fetch office reviews' });
   }
 });
 
