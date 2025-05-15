@@ -14,7 +14,6 @@ db.Review = require('./review.model')(sequelize, Sequelize.DataTypes);
 db.Notification = require('./notification.model')(sequelize, Sequelize.DataTypes);
 
 // Relations
-db.User.hasMany(db.Project, { foreignKey: 'user_id' });
 db.Office.hasMany(db.Project, { foreignKey: 'office_id' });
 db.Company.hasMany(db.Project, { foreignKey: 'company_id' });
 
@@ -22,9 +21,11 @@ db.User.hasMany(db.Review, { foreignKey: 'user_id' });
 db.Company.hasMany(db.Review, { foreignKey: 'company_id' });
 db.Project.hasMany(db.Review, { foreignKey: 'project_id' });
 db.Office.hasMany(db.Review, { foreignKey: 'office_id'});
+db.Project.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
+db.User.hasMany(db.Project, { foreignKey: 'user_id', as: 'projects' });
 
-db.User.hasMany(db.Notification, { foreignKey: 'user_id' });
-
+db.User.hasMany(db.Notification, { foreignKey: 'user_id', as: 'notifications' });
+db.Notification.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
 db.Review.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
 db.Review.belongsTo(db.Company, { foreignKey: 'company_id', as: 'company' });
 db.Review.belongsTo(db.Project, { foreignKey: 'project_id', as: 'project' });

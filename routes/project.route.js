@@ -35,7 +35,12 @@ router.get('/:id', async (req, res) => {
 // =======================
 router.post('/', authenticate, async (req, res) => {
   try {
-    const newProject = await Project.create(req.body);
+    const projectData = {
+      ...req.body,
+      user_id: req.user.id // ← ← ← هنا نضيفه يدوياً من التوكن
+    };
+
+    const newProject = await Project.create(projectData);
     res.status(201).json(newProject);
   } catch (err) {
     console.error('Error creating project:', err);
@@ -51,7 +56,12 @@ router.put('/:id', authenticate, async (req, res) => {
     const project = await Project.findByPk(req.params.id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    await project.update(req.body);
+    const projectData = {
+      ...req.body,
+      user_id: req.user.id // ← ← ← هنا نضيفه يدوياً من التوكن
+    };
+
+    await project.update(projectData);
     res.json({ message: 'Project updated', project });
   } catch (err) {
     console.error('Error updating project:', err);
