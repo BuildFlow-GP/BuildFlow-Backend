@@ -7,9 +7,9 @@ const router = express.Router();
 
 const schema = process.env.DB_SCHEMA;
 
-// JWT Token generator
-const generateToken = (userId, userType) => {
-  return jwt.sign({ userId, userType }, process.env.JWT_SECRET, { expiresIn: '7d' });
+// ✅ JWT Token generator - استخدم "id" بدل "userId"
+const generateToken = (id, userType) => {
+  return jwt.sign({ id, userType }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // =======================
@@ -105,6 +105,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid password' });
     }
 
+    // ✅ استخدم id هنا لتكون متوافقة مع middleware وroutes
     const token = generateToken(user.id, userType);
 
     res.json({

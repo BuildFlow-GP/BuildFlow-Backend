@@ -24,6 +24,11 @@ db.Project.hasMany(db.Review, { foreignKey: 'project_id' });
 
 db.User.hasMany(db.Notification, { foreignKey: 'user_id' });
 
+db.Review.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
+db.Review.belongsTo(db.Company, { foreignKey: 'company_id', as: 'company' });
+db.Review.belongsTo(db.Project, { foreignKey: 'project_id', as: 'project' });
+
+
 // Sync the schema (optional in dev)
 db.sequelize.sync({ alter: true }).then(() => {
   console.log('Database & tables synced!');
