@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS "buildflow".notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 );
 
-CREATE TABLE project_designs (
+CREATE TABLE IF NOT EXISTS "buildflow".project_designs (
   id SERIAL PRIMARY KEY,
   project_id INT REFERENCES "buildflow".projects(id), 
   floor_count INTEGER,
