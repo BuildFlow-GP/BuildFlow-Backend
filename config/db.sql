@@ -99,6 +99,25 @@ CREATE TABLE IF NOT EXISTS "buildflow".notifications (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 );
 
+CREATE TABLE project_designs (
+  id SERIAL PRIMARY KEY,
+  project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  floor_count INTEGER,
+  bedrooms INTEGER,
+  bathrooms INTEGER,
+  kitchens INTEGER,
+  balconies INTEGER,
+  special_rooms TEXT[], -- array of room types like ["Salon", "Dining"]
+  directional_rooms JSONB, -- list of {room, direction}
+  kitchen_type VARCHAR(50),
+  master_has_bathroom BOOLEAN,
+  general_description TEXT,
+  interior_design TEXT,
+  room_distribution TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 
 
 

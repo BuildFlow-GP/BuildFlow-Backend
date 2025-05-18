@@ -7,15 +7,20 @@ const officeRoutes = require('./routes/office.route');
 const searchRoutes = require('./routes/search.route');
 const reviewRoutes = require('./routes/review.route');
 const projectRoutes = require('./routes/project.route');
-
-
 const cors = require('cors');
-console.log("ENV SCHEMA:", process.env.DB_SCHEMA);
 const path = require('path');
-
-app.use('/images', express.static(path.join(__dirname, 'images')));
-
 app.use(cors());
+app.use('/images', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');  // Allow all origins
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+}, express.static(path.join(__dirname, 'images')));
+
+
+console.log("ENV SCHEMA:", process.env.DB_SCHEMA);
+
+
 app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoute);
@@ -26,4 +31,4 @@ app.use('/api/projects', projectRoutes);
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
