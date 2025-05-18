@@ -8,19 +8,19 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 // GET /api/offices/suggestions
 router.get('/offices/suggestions', async (req, res) => {
   try {
-    const offices = await Office.findAll({
+    const office = await Office.findAll({
       limit: 10,
       order: [['rating', 'DESC']],
       attributes: ['id', 'name', 'location', 'profile_image', 'rating'],
     });
  //  Convert relative image path to absolute URL
-    const updatedOffices = offices.map(office => ({
+    const offices = office.map(office => ({
       ...office.dataValues,
       profile_image: office.profile_image
         ? `${BASE_URL}/${office.profile_image}`
         : '',
     }));
-    res.json({ updatedOffices });
+    res.json({ offices: office });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch office suggestions' });

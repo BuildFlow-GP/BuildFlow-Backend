@@ -11,6 +11,9 @@ const projectRoutes = require('./routes/project.route');
 
 const cors = require('cors');
 console.log("ENV SCHEMA:", process.env.DB_SCHEMA);
+const path = require('path');
+
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 app.use(cors());
 app.use(express.json());
