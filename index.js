@@ -7,6 +7,8 @@ const officeRoutes = require('./routes/office.route');
 const searchRoutes = require('./routes/search.route');
 const reviewRoutes = require('./routes/review.route');
 const projectRoutes = require('./routes/project.route');
+const projectDesignsRoutes = require('./routes/projectDesign.route');
+
 const cors = require('cors');
 const path = require('path');
 app.use(cors());
@@ -28,7 +30,7 @@ app.use('/api', officeRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/projects', projectRoutes);
-
+app.use('/api/project-designs', projectDesignsRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));

@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS "buildflow".notifications (
 
 CREATE TABLE project_designs (
   id SERIAL PRIMARY KEY,
-  project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+  project_id INT REFERENCES "buildflow".projects(id), 
   floor_count INTEGER,
   bedrooms INTEGER,
   bathrooms INTEGER,
