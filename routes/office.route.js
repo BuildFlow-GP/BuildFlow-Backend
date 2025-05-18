@@ -3,6 +3,7 @@
 const express = require('express');
 const { Office } = require('../models');
 const router = express.Router();
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // GET /api/offices/suggestions
 router.get('/offices/suggestions', async (req, res) => {
@@ -12,8 +13,14 @@ router.get('/offices/suggestions', async (req, res) => {
       order: [['rating', 'DESC']],
       attributes: ['id', 'name', 'location', 'profile_image', 'rating'],
     });
-
-    res.json({ offices });
+ //  Convert relative image path to absolute URL
+    const updatedOffices = offices.map(office => ({
+      ...office.dataValues,
+      profile_image: office.profile_image
+        ? `${BASE_URL}/${office.profile_image}`
+        : '',
+    }));
+    res.json({ updatedOffices });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch office suggestions' });
