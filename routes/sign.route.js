@@ -95,14 +95,14 @@ router.post('/login', async (req, res) => {
     });
 
     if (users.length === 0) {
-      return res.status(400).json({ error: 'User not found' });
+      return res.status(400).json({ message: 'User not found' });
     }
 
     const user = users[0];
     const valid = await bcrypt.compare(password, user.password_hash);
 
     if (!valid) {
-      return res.status(401).json({ error: 'Invalid password' });
+      return res.status(401).json({ message: 'Invalid password' });
     }
 
     // ✅ استخدم id هنا لتكون متوافقة مع middleware وroutes
@@ -115,7 +115,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ message: 'Login failed' });
   }
 });
 

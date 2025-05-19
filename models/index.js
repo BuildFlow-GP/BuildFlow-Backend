@@ -12,6 +12,7 @@ db.Company = require('./company.model')(sequelize, Sequelize.DataTypes);
 db.Project = require('./project.model')(sequelize, Sequelize.DataTypes);
 db.Review = require('./review.model')(sequelize, Sequelize.DataTypes);
 db.Notification = require('./notification.model')(sequelize, Sequelize.DataTypes);
+db.ProjectDesign = require('./projectDesign.model')(sequelize, Sequelize.DataTypes);
 
 // Relations
 db.Office.hasMany(db.Project, { foreignKey: 'office_id' });
