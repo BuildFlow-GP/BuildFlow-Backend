@@ -200,7 +200,7 @@ VALUES
 
 
 -- table for steps
-CREATE TABLE permit_steps (
+CREATE TABLE IF NOT EXISTS "buildflow".permit_steps (
     id SERIAL PRIMARY KEY,
     user_id INT,  -- if you want to track per user/session
     step1 BOOLEAN NOT NULL DEFAULT FALSE,
