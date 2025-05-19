@@ -197,3 +197,117 @@ VALUES
 (3, 'Your feedback on the project has been successfully submitted.', TRUE, CURRENT_TIMESTAMP),
 (4, 'Your project has been completed and is now ready for inspection.', TRUE, CURRENT_TIMESTAMP),
 (5, 'The project budget has been updated. Please review the new budget details.', FALSE, CURRENT_TIMESTAMP);
+
+
+-- table for steps
+CREATE TABLE permit_steps (
+    id SERIAL PRIMARY KEY,
+    user_id INT,  -- if you want to track per user/session
+    step1 BOOLEAN NOT NULL DEFAULT FALSE,
+    step2 BOOLEAN NOT NULL DEFAULT FALSE,
+    step3 BOOLEAN NOT NULL DEFAULT FALSE,
+    step4 BOOLEAN NOT NULL DEFAULT FALSE,
+    selected_nav_index INT NOT NULL DEFAULT 0,
+    submitted_at TIMESTAMP,  -- when the user submitted documents
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--  تعديل جدول المشاريع (projects) لتخزين معلومات الأرض
+ALTER TABLE "buildflow".projects
+ADD COLUMN land_area DECIMAL(10, 2),      -- مساحة الأرض
+ADD COLUMN plot_number VARCHAR(50),       -- رقم القطعة
+ADD COLUMN basin_number VARCHAR(50),      -- رقم الحوض
+ADD COLUMN land_location TEXT;            -- موقع الأرض
+
+
+-- تعديل جدول المشاريع (projects) لتخزين توقيع الاتفاقية وحالتها:
+
+ALTER TABLE "buildflow".projects
+ADD COLUMN signed_at TIMESTAMP,               -- وقت توقيع الاتفاقية
+ADD COLUMN agreement_status VARCHAR(50) DEFAULT 'Pending'; -- حالة الاتفاقية
+
+-- تخزين بيانات
+UPDATE "buildflow".projects
+SET land_area = 250.75, plot_number = '123A', basin_number = '456B', land_location = 'Ramallah - Al-Masyoun'
+WHERE id = 1;
+
+UPDATE "buildflow".projects
+SET land_area = 300.50, plot_number = '321B', basin_number = '654A', land_location = 'Nablus - Al-Maajen'
+WHERE id = 2;
+
+UPDATE "buildflow".projects
+SET land_area = 150.00, plot_number = '789C', basin_number = '987D', land_location = 'Hebron - Al-Haras'
+WHERE id = 3;
+
+UPDATE "buildflow".projects
+SET land_area = 400.25, plot_number = '456D', basin_number = '654C', land_location = 'Bethlehem - Al-Khader'
+WHERE id = 4;
+
+UPDATE "buildflow".projects
+SET land_area = 200.10, plot_number = '147E', basin_number = '258F', land_location = 'Jenin - City Center'
+WHERE id = 5;
+
+UPDATE "buildflow".projects
+SET land_area = 350.40, plot_number = '369G', basin_number = '963H', land_location = 'Tulkarm - North Entrance'
+WHERE id = 6;
+
+UPDATE "buildflow".projects
+SET land_area = 280.30, plot_number = '852I', basin_number = '741J', land_location = 'Qalqilya - West Street'
+WHERE id = 7;
+
+UPDATE "buildflow".projects
+SET land_area = 310.20, plot_number = '963K', basin_number = '147L', land_location = 'Salfit - Main Road'
+WHERE id = 8;
+
+UPDATE "buildflow".projects
+SET land_area = 190.70, plot_number = '456M', basin_number = '654N', land_location = 'Jericho - South Entrance'
+WHERE id = 9;
+
+UPDATE "buildflow".projects
+SET land_area = 220.80, plot_number = '321O', basin_number = '123P', land_location = 'Gaza - Al-Rimal'
+WHERE id = 10;
+ 
+
+-- توقيع الاتفاقية امثلة
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Signed', signed_at = '2024-06-01 09:30:00'
+WHERE id = 1;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Signed', signed_at = '2024-07-15 10:15:00'
+WHERE id = 2;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Signed', signed_at = '2024-05-20 11:45:00'
+WHERE id = 3;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Pending', signed_at = NULL
+WHERE id = 4;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Cancelled', signed_at = '2024-08-05 12:00:00'
+WHERE id = 5;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Signed', signed_at = '2024-06-10 14:30:00'
+WHERE id = 6;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Signed', signed_at = '2024-05-25 15:00:00'
+WHERE id = 7;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Pending', signed_at = NULL
+WHERE id = 8;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Completed', signed_at = '2024-05-15 16:20:00'
+WHERE id = 9;
+
+UPDATE "buildflow".projects
+SET agreement_status = 'Signed', signed_at = '2024-09-10 17:00:00'
+WHERE id = 10;
