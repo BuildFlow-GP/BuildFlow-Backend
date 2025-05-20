@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS "buildflow".reviews (
     user_id INT REFERENCES "buildflow".userss(id), 
     company_id INT REFERENCES "buildflow".companies(id), 
     project_id INT REFERENCES "buildflow".projects(id), 
+    office_id INT REFERENCES "buildflow".offices(id),
     rating INT CHECK (rating BETWEEN 1 AND 5), 
     comment TEXT, 
     reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
