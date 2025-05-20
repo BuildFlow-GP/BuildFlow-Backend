@@ -72,51 +72,79 @@ router.post('/signup', async (req, res) => {
 // =======================
 // Login
 // =======================
-router.post('/login', async (req, res) => {
-  const { email, password, userType } = req.body;
 
-  if (!userType || !['Individual', 'Company', 'Office'].includes(userType)) {
-    return res.status(400).json({ error: 'Invalid or missing userType' });
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
   }
 
   try {
-    let query;
-    if (userType === 'Individual') {
-      query = `SELECT * FROM "${schema}".userss WHERE email = :email`;
-    } else if (userType === 'Company') {
-      query = `SELECT * FROM "${schema}".companies WHERE email = :email`;
-    } else if (userType === 'Office') {
-      query = `SELECT * FROM "${schema}".offices WHERE email = :email`;
-    }
+    // نبحث في جميع الجداول واحداً تلو الآخر
+    let user = null;
+    let userType = null;
 
-    const users = await sequelize.query(query, {
+    // 1. بحث في userss
+    let query = `SELECT * FROM "${schema}".userss WHERE email = :email`;
+    let results = await sequelize.query(query, {
       replacements: { email },
       type: QueryTypes.SELECT
     });
+    if (results.length > 0) {
+      user = results[0];
+      userType = 'Individual';
+    }
 
-    if (users.length === 0) {
+    // 2. إذا ما لقيت في userss، ابحث في companies
+    if (!user) {
+      query = `SELECT * FROM "${schema}".companies WHERE email = :email`;
+      results = await sequelize.query(query, {
+        replacements: { email },
+        type: QueryTypes.SELECT
+      });
+      if (results.length > 0) {
+        user = results[0];
+        userType = 'Company';
+      }
+    }
+
+    // 3. إذا ما لقيت في companies، ابحث في offices
+    if (!user) {
+      query = `SELECT * FROM "${schema}".offices WHERE email = :email`;
+      results = await sequelize.query(query, {
+        replacements: { email },
+        type: QueryTypes.SELECT
+      });
+      if (results.length > 0) {
+        user = results[0];
+        userType = 'Office';
+      }
+    }
+
+    if (!user) {
       return res.status(400).json({ message: 'User not found' });
     }
 
-    const user = users[0];
     const valid = await bcrypt.compare(password, user.password_hash);
-
     if (!valid) {
       return res.status(401).json({ message: 'Invalid password' });
     }
 
-    // ✅ استخدم id هنا لتكون متوافقة مع middleware وroutes
     const token = generateToken(user.id, userType);
 
     res.json({
       message: 'Login successful',
       token,
-      user
+      user,
+      userType // أرسل نوع المستخدم مع الرد
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Login failed' });
   }
 });
+
 
 module.exports = router;
