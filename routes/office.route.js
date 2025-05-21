@@ -4,8 +4,10 @@ const express = require('express');
 const { Review,Office } = require('../models');
 const router = express.Router();
 const BASE_URL = process.env.BASE_URL || 'http://192.168.1.4:5000';
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
+//const multer = require('multer');
+//const upload = multer({ dest: 'uploads/' });
+const upload = require('../middleware/upload');
+
 // GET /api/offices/suggestions
 router.get('/offices/suggestions', async (req, res) => {
   try {
@@ -35,7 +37,7 @@ router.get('/alloffices', async (req, res) => {
     const office = await Office.findAll({
       where: { is_available: true },
       limit: 10,
-      attributes: { exclude: ['password_hash'] },
+      attributes: {},
     });
 
     const offices = office.map(office => ({
@@ -138,19 +140,46 @@ router.post('/offices/:id/upload-image', authenticate, upload.single('profile_im
     const office = await Office.findByPk(req.params.id);
     if (!office) return res.status(404).json({ message: 'Office not found' });
 
-    // تحقق صلاحيات المستخدم هنا لو لازم
-     if (office.id !== req.user.id) return res.status(403).json({ message: 'Not authorized' });
+    // تأكد أن المستخدم يملك هذا المكتب
+    if (office.user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
 
-    // حفظ مسار الصورة في قاعدة البيانات
-    office.profile_image = req.file.path; 
+    // تحديث مسار الصورة في قاعدة البيانات
+    office.profile_image = `uploads/${req.file.filename}`;
     await office.save();
 
-    res.json({ message: 'Image uploaded', profile_image_url: `${BASE_URL}/${req.file.path}` });
+    res.json({
+      message: 'Image uploaded',
+      profile_image_url: `${BASE_URL}/uploads/${req.file.filename}`,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Failed to upload image' });
   }
 });
+
+// GET /api/offices/:id
+router.get('/offices/:id', async (req, res) => {
+  try {
+    const office = await Office.findByPk(req.params.id);
+
+    if (!office) {
+      return res.status(404).json({ message: 'Office not found' });
+    }
+
+    // تعديل مسار الصورة إذا موجود
+    const profileImageUrl = office.profile_image
+      ? `${BASE_URL}/${office.profile_image.replace(/\\/g, '/')}`
+      : '';
+
+    res.json({
+      ...office.dataValues,
+      profile_image: profileImageUrl,
+    });
+  } catch (error) {
+    console.error('Error fetching office by ID:', error);
+    res.status(500).json({ message: 'Failed to fetch office' });
+  }
+});
 module.exports = router;
-
-
