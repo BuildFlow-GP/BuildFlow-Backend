@@ -7,6 +7,8 @@ const officeRoutes = require('./routes/office.route');
 const searchRoutes = require('./routes/search.route');
 const reviewRoutes = require('./routes/review.route');
 const projectRoutes = require('./routes/project.route');
+const userRoutes = require('./routes/user.route');
+const companyRoutes = require('./routes/company.route');
 const projectDesignsRoutes = require('./routes/projectDesign.route');
 const cors = require('cors');
 const path = require('path');
@@ -41,6 +43,9 @@ app.use('/api/search', searchRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/project-designs', projectDesignsRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/companies', companyRoutes);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));

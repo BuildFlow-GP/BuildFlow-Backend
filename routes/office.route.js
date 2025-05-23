@@ -168,7 +168,7 @@ router.get('/offices/:id', async (req, res) => {
       return res.status(404).json({ message: 'Office not found' });
     }
 
-    // تعديل مسار الصورة إذا موجود
+   // تعديل مسار الصورة إذا موجود
     const profileImageUrl = office.profile_image
       ? `${BASE_URL}/${office.profile_image.replace(/\\/g, '/')}`
       : '';
