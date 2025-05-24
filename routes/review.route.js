@@ -54,10 +54,11 @@ router.post('/', authenticate, async (req, res) => {
   try {
     const { company_id, project_id, office_id, rating, comment } = req.body;
 
-    // Require at least one of the three IDs
-    if (!company_id && !project_id && !office_id) {
+    // ✅ Ensure exactly one of the three IDs is provided
+    const ids = [company_id, project_id, office_id].filter(id => id !== undefined && id !== null);
+    if (ids.length !== 1) {
       return res.status(400).json({
-        message: 'At least one of company_id, project_id, or office_id must be provided',
+        message: 'Exactly one of company_id, project_id, or office_id must be provided.',
       });
     }
 
@@ -80,6 +81,7 @@ router.post('/', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Failed to create review' });
   }
 });
+
 
 // ===========================
 // PUT /reviews/:id — Update Review

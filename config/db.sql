@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS "buildflow".reviews (
     user_id INT REFERENCES "buildflow".userss(id), 
     company_id INT REFERENCES "buildflow".companies(id), 
     project_id INT REFERENCES "buildflow".projects(id), 
+    office_id INT REFERENCES "buildflow".offices(id),
     rating INT CHECK (rating BETWEEN 1 AND 5), 
     comment TEXT, 
     reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
@@ -200,7 +201,7 @@ VALUES
 
 
 -- table for steps
-CREATE TABLE permit_steps (
+CREATE TABLE IF NOT EXISTS "buildflow".permit_steps (
     id SERIAL PRIMARY KEY,
     user_id INT,  -- if you want to track per user/session
     step1 BOOLEAN NOT NULL DEFAULT FALSE,
