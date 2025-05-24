@@ -1,19 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { companies } = require('../models');
-const authenticateToken = require('../middleware/authenticateToken');
+const { Company } = require('../models');
+const authenticateToken = require('../middleware/authenticate');
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // Get company profile
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const userType = req.user.userType;
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
-    if (userType !== 'company') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const company = await companies.findByPk(userId);
+    const company = await Company.findByPk(userId);
     if (!company) return res.status(404).json({ error: 'Company not found' });
 
     res.json(company);
@@ -23,16 +19,12 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 // Update company profile (with or without image)
-router.put('/me', authenticateToken, async (req, res) => {
+router.post('/me', authenticateToken, async (req, res) => {
   try {
-    const userType = req.user.userType;
-    const userId = req.user.userId;
+    const userId = req.user.id;
 
-    if (userType !== 'company') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
 
-    const updated = await companies.update(req.body, {
+    const updated = await Company.update(req.body, {
       where: { id: userId },
       returning: true,
     });
@@ -42,5 +34,56 @@ router.put('/me', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+
+
+// GET /api/companies/allcompanies
+router.get('/allcompanies', async (req, res) => {
+  try {
+    const companies = await Company.findAll({
+      limit: 10,
+      attributes: {
+        exclude: ['password_hash'], // نخفي كلمة السر
+      },
+    });
+
+    const formattedCompanies = companies.map(company => ({
+      ...company.dataValues,
+      profile_image: company.profile_image
+        ? `${BASE_URL}/${company.profile_image.replace(/\\/g, '/')}`
+        : '',
+    }));
+
+    res.json(formattedCompanies);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// GET /api/companies/suggestions
+router.get('/suggestions', async (req, res) => {
+  try {
+    const companies = await Company.findAll({
+      limit: 10,
+      order: [['rating', 'DESC']],
+      attributes: ['id', 'name', 'profile_image', 'rating'],
+    });
+
+    const formatted = companies.map(company => ({
+      ...company.dataValues,
+      profile_image: company.profile_image
+        ? `${BASE_URL}/${company.profile_image.replace(/\\/g, '/')}`
+        : '',
+    }));
+
+    res.json({ companies: formatted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch company suggestions' });
+  }
+});
+
 
 module.exports = router;
