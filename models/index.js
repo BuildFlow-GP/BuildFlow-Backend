@@ -54,3 +54,4 @@ db.sequelize.sync({ alter: true }).then(() => {
 });
 
 module.exports = db;
+
