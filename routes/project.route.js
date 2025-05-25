@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Project, Review, User } = require('../models');
+const { Project, Review, User, Company, Office } = require('../models');
 const authenticate = require('../middleware/authenticate');
 
 // =======================
@@ -15,6 +15,30 @@ router.get('/', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch projects' });
   }
 });
+
+
+// GET /api/projects/suggestions
+router.get('/suggestions', async (req, res) => {
+  try {
+    const projects = await Project.findAll({
+      limit: 10,
+      order: [['created_at', 'DESC']],
+      include: [
+        { model: User, as: 'user' },
+        { model: Company, as: 'company' },
+        { model: Office, as: 'office' },
+      ],
+    });
+
+    res.json(projects);
+  } catch (error) {
+    console.error('Error fetching project suggestions:', error);
+    res.status(500).json({ error: 'Failed to fetch project suggestions' });
+  }
+});
+
+module.exports = router;
+
 
 // =======================
 // GET /projects/:id — Get single project
@@ -135,5 +159,6 @@ router.get('/:id/status', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch project status' });
   }
 });
+
 
 module.exports = router;
