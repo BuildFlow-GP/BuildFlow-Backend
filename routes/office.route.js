@@ -1,7 +1,7 @@
 // routes/office.js or routes/api.js
 const authenticate = require('../middleware/authenticate');
 const express = require('express');
-const { Review,Office } = require('../models');
+const { Review,Office,Project, User, Company } = require('../models');
 const router = express.Router();
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 //const multer = require('multer');
@@ -182,4 +182,84 @@ router.get('/offices/:id', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch office' });
   }
 });
+
+// في ملف routes/office.js أو ملف مناسب
+
+router.get('/:officeId/officeprojects', async (req, res) => {
+  try {
+    const officeId = req.params.officeId;
+    const office = await Office.findByPk(officeId);
+    if (!office) {
+      return res.status(404).json({ message: 'Office not found' });
+    }
+
+    // افترض أن لديك علاقة بين Office و Project
+    // مثلاً، Project.findAll({ where: { office_id: officeId } })
+    // أو إذا كانت العلاقة معرفة في Sequelize:
+    const projects = await Project.findAll({
+      where: { office_id: officeId }, // أو اسم الحقل الصحيح الذي يربط المشروع بالمكتب
+      order: [['created_at', 'DESC']], // مثال لترتيب المشاريع
+      include: [ // يمكنك تضمين معلومات إضافية إذا أردت
+        // { model: User, as: 'client', attributes: ['id', 'name'] }, // مثال
+      ],
+      // اختاري الحقول التي تحتاجينها فقط للمشروع في القائمة
+      attributes: ['id', 'name', 'status', 'start_date', 'end_date', /* 'project_cover_image' إذا وجد */],
+    });
+
+    const formattedProjects = projects.map(project => ({
+      ...project.dataValues,
+      // project_cover_image: project.project_cover_image ? `${BASE_URL}/${project.project_cover_image}` : null,
+    }));
+
+    res.json(formattedProjects);
+  } catch (error) {
+    console.error('Error fetching office projects:', error);
+    res.status(500).json({ message: 'Failed to fetch office projects' });
+  }
+});
+
+
+
+// في ملف routes/office.js أو ملف مناسب
+
+router.get('/:officeId/officereviews', async (req, res) => {
+  try {
+    const officeId = req.params.officeId;
+    const office = await Office.findByPk(officeId);
+    if (!office) {
+      return res.status(404).json({ message: 'Office not found' });
+    }
+
+    const reviews = await Review.findAll({
+      where: { office_id: officeId },
+      include: [
+        {
+          model: User, // افترض أن Review مرتبط بـ User
+          as: 'user', // أو الاسم المستخدم في تعريف العلاقة
+          attributes: ['id', 'name', 'profile_image'], // الحقول التي تريدينها من المستخدم
+        },
+      ],
+      order: [['reviewed_at', 'DESC']],
+    });
+
+    // معالجة صورة المستخدم في كل مراجعة
+    const formattedReviews = reviews.map(review => {
+      const user = review.user ? {
+        ...review.user.dataValues,
+        profile_image: review.user.profile_image ? `${BASE_URL}/${review.user.profile_image.replace(/\\/g, '/')}` : null,
+      } : null;
+
+      return {
+        ...review.dataValues,
+        user: user, // إرجاع معلومات المستخدم المعالجة
+      };
+    });
+
+    res.json(formattedReviews);
+  } catch (error) {
+    console.error('Error fetching office reviews:', error);
+    res.status(500).json({ message: 'Failed to fetch office reviews' });
+  }
+});
+
 module.exports = router;
