@@ -119,6 +119,49 @@ CREATE TABLE IF NOT EXISTS "buildflow".project_designs (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS "buildflow".user_favorites (
+    "id" SERIAL PRIMARY KEY,
+    "user_id" INTEGER NOT NULL,
+    "item_id" INTEGER NOT NULL,
+    "item_type" VARCHAR(255) NOT NULL CHECK ("item_type" IN ('office', 'company', 'project')),
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign key constraint for user_id
+    CONSTRAINT "fk_user_favorites_user"
+        FOREIGN KEY ("user_id")
+        REFERENCES "buildflow"."userss" ("id") -- تأكدي أن اسم جدول المستخدمين هو "userss"
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+        
+    -- Unique constraint to prevent duplicate favorites for the same user and item
+    CONSTRAINT "unique_user_item_favorite"
+        UNIQUE ("user_id", "item_id", "item_type")
+);
+
+CREATE TABLE IF NOT EXISTS "buildflow".user_favorites (
+    "id" SERIAL PRIMARY KEY,
+    "user_id" INTEGER NOT NULL,
+    "item_id" INTEGER NOT NULL,
+    "item_type" VARCHAR(255) NOT NULL CHECK ("item_type" IN ('office', 'company', 'project')),
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Foreign key constraint for user_id
+    CONSTRAINT "fk_user_favorites_user"
+        FOREIGN KEY ("user_id")
+        REFERENCES "buildflow"."userss" ("id") -- تأكدي أن اسم جدول المستخدمين هو "userss"
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+        
+    -- Unique constraint to prevent duplicate favorites for the same user and item
+    CONSTRAINT "unique_user_item_favorite"
+        UNIQUE ("user_id", "item_id", "item_type")
+);
+
+-- اختياري: إضافة فهارس (Indexes) لتحسين أداء الاستعلامات إذا لم يتم إنشاؤها تلقائياً
+CREATE INDEX IF NOT EXISTS "idx_user_favorites_user_id" ON "buildflow"."user_favorites" ("user_id");
+CREATE INDEX IF NOT EXISTS "idx_user_favorites_item_type_id" ON "buildflow"."user_favorites" ("item_type", "item_id");
+
+
 
 
 

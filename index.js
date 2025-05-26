@@ -10,6 +10,7 @@ const projectRoutes = require('./routes/project.route');
 const userRoutes = require('./routes/user.route');
 const companyRoutes = require('./routes/company.route');
 const projectDesignsRoutes = require('./routes/projectDesign.route');
+const userFavoritesRoutes = require('./routes/userFav.route');
 const cors = require('cors');
 const path = require('path');
 
@@ -45,6 +46,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/project-designs', projectDesignsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
+app.use('/api/userfav', userFavoritesRoutes);
 
 
 const PORT = process.env.PORT || 5000;
