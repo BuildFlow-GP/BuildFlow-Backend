@@ -1,7 +1,7 @@
 // routes/user.js
 const express = require('express');
 const router = express.Router();
-const { User } = require('../models');
+const { User, Project, Company, Office } = require('../models');
 const authenticate = require('../middleware/authenticate');
 
 // Define BASE_URL for constructing image URLs
@@ -74,5 +74,58 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
+
+
+// GET /api/users/me/projects - جلب مشاريع المستخدم الحالي المسجل
+router.get('/me/projects', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const baseUrl =  'http://localhost:5000/';
+
+    const userProjects = await Project.findAll({
+      where: { user_id: userId },
+      order: [['created_at', 'DESC']],
+      include: [
+        {
+          model: Office,
+          as: 'office',
+          attributes: ['id', 'name', 'profile_image'],
+          required: false
+        },
+        {
+          model: Company,
+          as: 'company',
+          attributes: ['id', 'name', 'profile_image'],
+          required: false
+        }
+      ]
+    });
+
+    if (!userProjects || userProjects.length === 0) {
+      return res.json([]);
+    }
+
+    // تعديل روابط الصور قبل الإرسال
+    const updatedProjects = userProjects.map(project => {
+      const p = project.toJSON();
+
+      if (p.office && p.office.profile_image) {
+        p.office.profile_image = baseUrl + p.office.profile_image;
+      }
+
+      if (p.company && p.company.profile_image) {
+        p.company.profile_image = baseUrl + p.company.profile_image;
+      }
+
+      return p;
+    });
+
+    res.json(updatedProjects);
+
+  } catch (error) {
+    console.error('Error fetching user projects:', error);
+    res.status(500).json({ message: 'Failed to fetch your projects.' });
+  }
+});
 
 module.exports = router;
