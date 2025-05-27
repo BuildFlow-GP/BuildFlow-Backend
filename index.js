@@ -46,7 +46,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/project-designs', projectDesignsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
-app.use('/api/userfav', userFavoritesRoutes);
+app.use('/api/favorites', userFavoritesRoutes);
 
 
 const PORT = process.env.PORT || 5000;
