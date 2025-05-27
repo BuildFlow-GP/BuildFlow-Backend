@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Review, User, Company, Project, Office } = require('../models');
 const authenticate = require('../middleware/authenticate');
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // ===========================
 // GET /reviews — All Reviews

@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { User, Office, Company, Project } = require('../models');
 const router = express.Router();
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // Middleware to authenticate JWT
 const authenticate = (req, res, next) => {

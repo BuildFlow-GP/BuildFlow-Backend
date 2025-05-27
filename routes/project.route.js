@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Project, Review, User, Company, Office } = require('../models');
 const authenticate = require('../middleware/authenticate');
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // =======================
 // GET /projects — Get all projects

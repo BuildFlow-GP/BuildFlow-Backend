@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
 const { User, Office, Company, Project } = require('../models');
-
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 // /api/search/:type?q=searchTerm
 router.get('/:type', async (req, res) => {
   const { type } = req.params;
@@ -64,8 +64,22 @@ router.get('/:type', async (req, res) => {
       default:
         return res.status(400).json({ error: 'Invalid search type' });
     }
+    
+  // تعديل الصور وإرجاعها مع الرابط الكامل
+    const modifiedResults = results.map(item => {
+      const obj = item.toJSON();
 
-    return res.json({ results });
+      // عدّل الصورة حسب نوع العنصر
+      if (obj.profile_image) {
+        obj.profile_image = `${BASE_URL}/${obj.profile_image}`;
+      } else if (obj.project_image) {
+        obj.project_image = `${BASE_URL}/${obj.project_image}`;
+      }
+
+      return obj;
+    });
+
+    return res.json({ results: modifiedResults });
   } catch (error) {
     console.error('Search Error:', error);
     return res.status(500).json({ error: 'Server error' });

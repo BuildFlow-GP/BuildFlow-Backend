@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const sequelize = require('../config/db.config');
 const { QueryTypes } = require('sequelize');
 const router = express.Router();
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 const schema = process.env.DB_SCHEMA;
 
@@ -130,13 +131,20 @@ router.post('/login', async (req, res) => {
     if (!valid) {
       return res.status(401).json({ message: 'Invalid password' });
     }
+const userWithImage = {
+  ...user,
+  profile_image: user.profile_image
+    ? `${BASE_URL}/${user.profile_image}`
+    : '',
+};
+
 
     const token = generateToken(user.id, userType);
 
     res.json({
       message: 'Login successful',
       token,
-      user,
+      user: userWithImage,
       userType // أرسل نوع المستخدم مع الرد
     });
 
