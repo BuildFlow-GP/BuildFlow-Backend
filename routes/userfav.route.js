@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { UserFavorite, Office, Company, Project } = require('../models');
 const authenticate = require('../middleware/authenticate'); // middleware التوثيق
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // POST /api/favorites - إضافة عنصر إلى المفضلة
 router.post('/', authenticate, async (req, res) => {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { ProjectDesign } = require('../models');
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 // POST /api/project-designs/:projectId
 router.post('/:projectId', async (req, res) => {
