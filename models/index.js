@@ -46,6 +46,7 @@ db.User.hasMany(db.UserFavorite, { foreignKey: 'user_id', as: 'favorites' }); //
 // --- Notification Relationship ---
 db.Notification.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
 
+
 // --- Review Relationships ---
 db.Review.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
 db.Review.belongsTo(db.Company, { foreignKey: 'company_id', as: 'company' });
