@@ -12,7 +12,7 @@ db.Office = require('./office.model')(sequelize, Sequelize.DataTypes);
 db.Company = require('./company.model')(sequelize, Sequelize.DataTypes);
 db.Project = require('./project.model')(sequelize, Sequelize.DataTypes);
 db.Review = require('./review.model')(sequelize, Sequelize.DataTypes);
-db.Notification = require('./notification.model')(sequelize, Sequelize.DataTypes);
+db.Notification = require('./notifications.model')(sequelize, Sequelize.DataTypes);
 db.ProjectDesign = require('./projectDesign.model')(sequelize, Sequelize.DataTypes);
 db.UserFavorite = require('./userFav.model')(sequelize, Sequelize.DataTypes); // <-- إضافة النموذج الجديد
 
@@ -39,12 +39,12 @@ db.ProjectDesign.belongsTo(db.Project, { foreignKey: 'project_id', as: 'project'
 // --- User Relationships ---
 db.User.hasMany(db.Project, { foreignKey: 'user_id', as: 'projects' });
 db.User.hasMany(db.Review, { foreignKey: 'user_id' });
-db.User.hasMany(db.Notification, { foreignKey: 'user_id', as: 'notifications' });
+// db.User.hasMany(db.Notification, { foreignKey: 'user_id', as: 'notifications' });
 db.User.hasMany(db.UserFavorite, { foreignKey: 'user_id', as: 'favorites' }); // <-- إضافة علاقة المفضلة للمستخدم
 
 
 // --- Notification Relationship ---
-db.Notification.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
+// db.Notification.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
 
 
 // --- Review Relationships ---

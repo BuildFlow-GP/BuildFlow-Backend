@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(50),
       allowNull: false,
       validate: {
-        isIn: [['user', 'office', 'company']], // القيم المسموح بها
+        isIn: [['individual', 'office', 'company']], // القيم المسموح بها
       },
       comment: 'Type of the recipient (user, office, company)',
     },
@@ -28,7 +28,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(50),
       allowNull: true,
       validate: {
-        isIn: [['user', 'office', 'company', null]], // السماح بـ null
+        isIn: [['individual', 'office', 'company', null]], // السماح بـ null
       },
       comment: 'Type of the actor (user, office, company)',
     },
