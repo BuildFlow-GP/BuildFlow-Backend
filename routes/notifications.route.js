@@ -1,28 +1,46 @@
-// routes/notification.route.js
+// routes/notifications.route.js
 const express = require('express');
 const router = express.Router();
 const { Notification, User, Office, Company } = require('../models'); // افترض أن db.Notification هو Notification هنا
 const authenticate = require('../middleware/authenticate'); // middleware التوثيق الخاص بك
 
-// Helper function to get actor details (you can move this to a service/helper file)
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000'; 
+
+// Helper function to get actor details
 async function getActorDetails(actorId, actorType) {
   if (!actorId || !actorType) return null;
-  let actor = null;
-  const attributes = ['id', 'name', 'profile_image']; // Common attributes
+  let actorData = null; // سنسميه actorData لتجنب الخلط مع موديل Sequelize
+  const attributes = ['id', 'name', 'profile_image'];
 
   try {
-    if (actorType.toLowerCase() === 'user') {
-      actor = await User.findByPk(actorId, { attributes });
+    let modelToQuery;
+    if (actorType.toLowerCase() === 'individual') { //  استخدمت 'individual' لتطابق قيم validate
+      modelToQuery = User;
     } else if (actorType.toLowerCase() === 'office') {
-      actor = await Office.findByPk(actorId, { attributes });
+      modelToQuery = Office;
     } else if (actorType.toLowerCase() === 'company') {
-      actor = await Company.findByPk(actorId, { attributes });
+      modelToQuery = Company;
+    }
+
+    if (modelToQuery) {
+      const actorInstance = await modelToQuery.findByPk(actorId, { attributes });
+      if (actorInstance) {
+        actorData = actorInstance.toJSON(); // تحويل إلى كائن JavaScript بسيط
+
+        // ✅✅✅ تعديل مسار الصورة هنا ✅✅✅
+        if (actorData.profile_image && !actorData.profile_image.startsWith('http')) {
+          // تأكدي من أن profile_image لا يبدأ بالفعل بـ http (قد يكون URL كامل بالفعل)
+          // وتأكدي من أن profile_image ليس فارغاً أو null
+          actorData.profile_image = `${BASE_URL}/${actorData.profile_image.replace(/\\/g, '/')}`; //  استبدال \ بـ / إذا كانت المسارات تستخدم backslashes
+        }
+      }
     }
   } catch (error) {
     console.error(`Error fetching actor details for ${actorType} ${actorId}:`, error);
-    // Don't let this error stop the whole notification process
   }
-  return actor ? { ...actor.toJSON(), type: actorType.toLowerCase() } : null;
+
+  // إرجاع الكائن المحدث أو null
+  return actorData ? { ...actorData, type: actorType.toLowerCase() } : null;
 }
 
 
