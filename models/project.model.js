@@ -22,6 +22,10 @@ module.exports = (sequelize, DataTypes) => {
         ]]
       }
     },
+    rejection_reason: { 
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     budget: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     start_date: { type: DataTypes.DATE, allowNull: true },
     end_date: { type: DataTypes.DATE, allowNull: true },
