@@ -11,6 +11,8 @@ const userRoutes = require('./routes/user.route');
 const companyRoutes = require('./routes/company.route');
 const projectDesignsRoutes = require('./routes/projectDesign.route');
 const userFavoritesRoutes = require('./routes/userFav.route');
+const notificationRoutes = require('./routes/notifications.route');
+
 const cors = require('cors');
 const path = require('path');
 
@@ -47,6 +49,7 @@ app.use('/api/project-designs', projectDesignsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/favorites', userFavoritesRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 
 const PORT = process.env.PORT || 5000;
