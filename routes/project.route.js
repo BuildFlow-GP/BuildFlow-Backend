@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Project, Review, User, Company, Office } = require('../models');
+const { Project, Notification,Review, User, Company, Office } = require('../models');
 const authenticate = require('../middleware/authenticate');
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
@@ -161,5 +161,150 @@ router.get('/:id/status', async (req, res) => {
   }
 });
 
+// ========================================================
+// POST /api/projects/request-initial - لإنشاء طلب مشروع مبدئي
+// ========================================================
+router.post('/request-initial', authenticate, async (req, res) => {
+  try {
+    const { office_id, project_type, initial_description } = req.body;
+    const user_id = req.user.id; // من التوكن
+    const userName = req.user.name || 'A user'; // اسم المستخدم من التوكن (افترض أنه موجود)
+
+    if (!office_id || !project_type) {
+      return res.status(400).json({ message: 'Office ID and project type are required.' });
+    }
+
+    // التحقق من وجود المكتب (اختياري ولكنه جيد)
+    const officeExists = await Office.findByPk(office_id);
+    if (!officeExists) {
+        return res.status(404).json({ message: `Office with ID ${office_id} not found.` });
+    }
+
+    // إنشاء المشروع المبدئي
+    const newProject = await Project.create({
+      name: project_type, // أو اسم مبدئي آخر
+      description: initial_description || null,
+      user_id: user_id,
+      office_id: office_id,
+      status: 'Pending Office Approval', // الحالة الأولية
+      // باقي الحقول ستأخذ قيمها الافتراضية أو null
+    });
+
+    // إنشاء إشعار للمكتب
+    if (newProject && officeExists) {
+      try {
+        await Notification.create({
+          recipient_id: office_id,
+          recipient_type: 'office',
+          actor_id: user_id,
+          actor_type: req.user.userType.toLowerCase(), // 'individual' أو 'user' حسب توكنك
+          notification_type: 'NEW_PROJECT_REQUEST',
+          message: `User '${userName}' submitted a new project request: '${newProject.name}'.`,
+          target_entity_id: newProject.id,
+          target_entity_type: 'project',
+        });
+        console.log(`Notification created for office ${office_id} for new project ${newProject.id}`);
+      } catch (notificationError) {
+        // مهم: لا تجعلي فشل إنشاء الإشعار يوقف العملية كلها
+        // فقط سجلي الخطأ
+        console.error('Failed to create notification for new project request:', notificationError);
+      }
+    }
+
+    res.status(201).json(newProject);
+
+  } catch (err) {
+    console.error('Error creating initial project request:', err);
+    // يمكنكِ إضافة معالجة أكثر تفصيلاً للأخطاء هنا (مثل SequelizeValidationError)
+    res.status(500).json({ message: 'Failed to create initial project request.' });
+  }
+});
+
+
+// =================================================================
+// PUT /api/projects/:projectId/respond - لموافقة أو رفض المكتب لطلب المشروع
+// =================================================================
+router.put('/:projectId/respond', authenticate, async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { action, rejection_reason } = req.body; // action: 'approve' or 'reject'
+    const officeId = req.user.id; //  نفترض أن الـ ID الخاص بالمكتب موجود في req.user.id
+    const officeName = req.user.name || 'The office'; // اسم المكتب من التوكن (لرسالة الإشعار)
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can respond to project requests.' });
+    }
+
+    if (!action || (action.toLowerCase() !== 'approve' && action.toLowerCase() !== 'reject')) {
+      return res.status(400).json({ message: 'Invalid action. Must be "approve" or "reject".' });
+    }
+
+    const project = await Project.findByPk(projectId, {
+      include: [{ model: User, as: 'user', attributes: ['id', 'name'] }] // لجلب معلومات المستخدم لإشعار الرفض/الموافقة
+    });
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project request not found.' });
+    }
+
+    // التأكد من أن المكتب الحالي هو المكتب المعني بالطلب
+    if (project.office_id !== officeId) {
+      return res.status(403).json({ message: 'Forbidden: You are not authorized to respond to this project request.' });
+    }
+
+    // التأكد من أن المشروع لا يزال في الحالة المناسبة للرد
+    if (project.status !== 'Pending Office Approval') {
+      return res.status(400).json({ message: `Cannot respond to project request. Current status: ${project.status}` });
+    }
+
+    let newStatus = '';
+    let userNotificationType = '';
+    let userNotificationMessage = '';
+
+    if (action.toLowerCase() === 'approve') {
+      newStatus = 'Office Approved - Awaiting Details'; // أو الحالة التي اتفقنا عليها
+      userNotificationType = 'PROJECT_APPROVED_BY_OFFICE';
+      userNotificationMessage = `Office '${officeName}' has approved your project request for '${project.name}'. You can now complete the project details.`;
+      project.rejection_reason = null; // مسح سبب الرفض إذا كان موجوداً سابقاً (نظافة)
+    } else { // action === 'reject'
+      newStatus = 'Office Rejected';
+      userNotificationType = 'PROJECT_REJECTED_BY_OFFICE';
+      userNotificationMessage = `Office '${officeName}' has rejected your project request for '${project.name}'.`;
+      if (rejection_reason) {
+        userNotificationMessage += ` Reason: ${rejection_reason}`;
+        project.rejection_reason = rejection_reason; //  افترض أن لديك عمود rejection_reason في جدول المشاريع (اختياري)
+      }
+    }
+
+    project.status = newStatus;
+    await project.save();
+
+    // إرسال إشعار للمستخدم الأصلي (صاحب المشروع)
+    if (project.user_id) { // تأكدي أن project.user_id موجود
+      try {
+        await Notification.create({
+          recipient_id: project.user_id,
+          recipient_type: 'individual', // أو 'user' حسب ما تستخدمينه
+          actor_id: officeId,
+          actor_type: 'office',
+          notification_type: userNotificationType,
+          message: userNotificationMessage,
+          target_entity_id: project.id,
+          target_entity_type: 'project',
+        });
+        console.log(`Notification sent to user ${project.user_id} for project ${project.id} status update.`);
+      } catch (notificationError) {
+        console.error('Failed to create notification for user about project response:', notificationError);
+        // لا تجعلي فشل الإشعار يوقف العملية، لكن سجليه
+      }
+    }
+
+    res.status(200).json({ message: `Project request ${action.toLowerCase()}ed successfully.`, project });
+
+  } catch (error) {
+    console.error('Error responding to project request:', error);
+    res.status(500).json({ message: 'Failed to respond to project request.' });
+  }
+});
 
 module.exports = router;

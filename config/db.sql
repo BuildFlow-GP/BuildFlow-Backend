@@ -90,15 +90,45 @@ CREATE TABLE IF NOT EXISTS "buildflow".reviews (
     reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
 );
 
--- NOTIFICATIONS TABLE
-CREATE TABLE IF NOT EXISTS "buildflow".notifications ( 
-    id SERIAL PRIMARY KEY, 
-    user_id INT REFERENCES "buildflow".userss(id), 
-    office_id INT REFERENCES "buildflow".offices(id),
-    message TEXT NOT NULL, 
-    is_read BOOLEAN DEFAULT FALSE, 
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+-- -- NOTIFICATIONS TABLE
+-- CREATE TABLE IF NOT EXISTS "buildflow".notifications ( 
+--     id SERIAL PRIMARY KEY, 
+--     user_id INT REFERENCES "buildflow".userss(id), 
+--     office_id INT REFERENCES "buildflow".offices(id),
+--     message TEXT NOT NULL, 
+--     is_read BOOLEAN DEFAULT FALSE, 
+--     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP 
+-- );
+
+
+CREATE TABLE IF NOT EXISTS "buildflow".notifications (
+    id SERIAL PRIMARY KEY,
+    
+    -- من هو "مستقبل" الإشعار (الذي سيراه في قائمته)
+    recipient_id INT NOT NULL, -- سيكون user_id للمستخدم أو المكتب
+    recipient_type VARCHAR(50) NOT NULL, -- 'user', 'office', 'company' (لتمييز الجدول الذي يشير إليه recipient_id إذا كانت IDs غير فريدة عبر الجداول)
+                                       -- أو إذا كان الـ ID فريداً عبر المستخدمين والمكاتب، يمكننا الاستغناء عن recipient_type هنا والاعتماد على recipient_user_id/recipient_office_id
+
+    -- من "تسبب" في الإشعار (اختياري)
+    actor_id INT, --  user_id أو office_id (للشخص/الكيان الذي قام بالفعل)
+    actor_type VARCHAR(50), -- 'user', 'office', 'company'
+
+    notification_type VARCHAR(100) NOT NULL, --  مثال: 'NEW_PROJECT_REQUEST', 'PROJECT_APPROVED', 'MESSAGE_RECEIVED'
+    
+    message TEXT NOT NULL, -- النص الذي سيظهر للمستخدم
+    
+    -- لربط الإشعار بكيان معين (مثل مشروع، مراجعة، إلخ)
+    target_entity_id INT, --  ID الكيان (e.g., project_id)
+    target_entity_type VARCHAR(50), -- 'project', 'review', 'user_profile'
+    
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMPTZ, --  متى قرئ
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- فهارس مقترحة لتحسين الأداء
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON "buildflow".notifications (recipient_id, recipient_type);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON "buildflow".notifications (is_read);
 
 CREATE TABLE IF NOT EXISTS "buildflow".project_designs (
   id SERIAL PRIMARY KEY,
