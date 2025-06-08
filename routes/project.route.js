@@ -76,21 +76,58 @@ router.post('/', authenticate, async (req, res) => {
 // =======================
 // PUT /projects/:id — Update project (authenticated)
 // =======================
+
 router.put('/:id', authenticate, async (req, res) => {
   try {
-    const project = await Project.findByPk(req.params.id);
-    if (!project) return res.status(404).json({ message: 'Project not found' });
+    const projectId = req.params.id;
+    const project = await Project.findByPk(projectId);
 
-    const projectData = {
-      ...req.body,
-      user_id: req.user.id // ← ← ← هنا نضيفه يدوياً من التوكن
-    };
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
 
-    await project.update(projectData);
-    res.json({ message: 'Project updated', project });
+    // ✅ التحقق من ملكية المشروع
+    if (project.user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden: You are not the owner of this project.' });
+    }
+
+    // ✅ التحقق من أن حالة المشروع تسمح بالتعديل من قبل المستخدم
+    const allowedStatesForUserEdit = [
+        'Office Approved - Awaiting Details', 
+        // يمكنكِ إضافة حالات أخرى هنا إذا سمحتِ بالتعديل في مراحل أخرى
+        // 'Further Info Requested by Office' 
+    ];
+    if (!allowedStatesForUserEdit.includes(project.status)) {
+        return res.status(400).json({ message: `Project details cannot be updated in the current project status: '${project.status}'` });
+    }
+
+    // استبعاد الحقول التي لا يجب أن يغيرها المستخدم مباشرة من خلال هذا الـ endpoint
+    // مثل user_id (يتم تعيينه عند الإنشاء), office_id (يتم تعيينه عند الإنشاء المبدئي), 
+    // status (يتم تغييره من خلال عمليات أخرى مثل الموافقة/الرفض).
+    // agreement_file (وغيرها من الملفات) سيتم تحديثها من خلال endpoint رفع الملفات.
+    const { user_id, office_id, status, agreement_file, license_file, document_2d, document_3d, ...updateData } = req.body;
+    
+    // إذا كان هناك حقل معين تريدين التأكد من عدم تحديثه، أزيليه من updateData
+    // delete updateData.some_field_not_to_update;
+
+    await project.update(updateData);
+
+    //  إرجاع المشروع المحدث بالكامل (اختياري، لكنه مفيد للـ frontend)
+    const updatedProject = await Project.findByPk(projectId, {
+        include: [ //  يمكنكِ تضمين الـ user والـ office إذا أردتِ
+            { model: User, as: 'user', attributes: ['id', 'name', 'profile_image'] },
+            { model: Office, as: 'office', attributes: ['id', 'name', 'profile_image'] }
+        ]
+    });
+
+    res.json({ message: 'Project details updated successfully.', project: updatedProject });
+
   } catch (err) {
     console.error('Error updating project:', err);
-    res.status(500).json({ message: 'Failed to update project' });
+    if (err.name === 'SequelizeValidationError') {
+        return res.status(400).json({ message: 'Validation Error', errors: err.errors.map(e => e.message) });
+    }
+    res.status(500).json({ message: 'Failed to update project.' });
   }
 });
 
