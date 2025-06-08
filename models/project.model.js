@@ -1,9 +1,9 @@
-// models/project.model.js
+// models/project.model.js (النسخة المصححة والمبسطة)
 module.exports = (sequelize, DataTypes) => {
   const Project = sequelize.define('projects', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    name: { type: DataTypes.STRING(150), allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: true },
+    name: { type: DataTypes.STRING(150), allowNull: false }, // اسم المشروع (قد يكون نوع التصميم مبدئياً)
+    description: { type: DataTypes.TEXT, allowNull: true }, // الوصف الكامل للمشروع
     status: { 
       type: DataTypes.STRING(50), 
       defaultValue: 'Pending Office Approval',
@@ -25,53 +25,48 @@ module.exports = (sequelize, DataTypes) => {
     budget: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     start_date: { type: DataTypes.DATE, allowNull: true },
     end_date: { type: DataTypes.DATE, allowNull: true },
-    location: { type: DataTypes.TEXT, allowNull: true }, //  الموقع العام للمشروع
+    location: { type: DataTypes.TEXT, allowNull: true }, // الموقع العام للمشروع (قد يكون مختلفاً عن عنوان المستخدم)
     
-    // === حقول معلومات الأرض (موجودة) ===
     land_area: { type: DataTypes.DECIMAL(10, 2), allowNull: true },
     plot_number: { type: DataTypes.STRING(50), allowNull: true },
     basin_number: { type: DataTypes.STRING(50), allowNull: true },
-    land_location: { type: DataTypes.TEXT, allowNull: true }, //  موقع الأرض التفصيلي (من areaName)
+    land_location: { type: DataTypes.TEXT, allowNull: true }, // موقع الأرض التفصيلي
 
-    // === حقول المستندات (موجودة) ===
-    license_file: { type: DataTypes.TEXT, allowNull: true }, //  رخصة البناء (قد تكون لاحقاً)
-    agreement_file: { type: DataTypes.TEXT, allowNull: true }, //  ملف الاتفاقية (من الخطوة 2)
+    license_file: { type: DataTypes.TEXT, allowNull: true },
+    agreement_file: { type: DataTypes.TEXT, allowNull: true }, // هذا هو الملف من الخطوة 2
     document_2d: { type: DataTypes.TEXT, allowNull: true },
     document_3d: { type: DataTypes.TEXT, allowNull: true },
-
-    // === حقول معلومات الاتصال الخاصة بالمشروع (جديدة) ===
-    contact_name: { type: DataTypes.STRING(100), allowNull: true },
-    contact_id_number: { type: DataTypes.STRING(50), allowNull: true },
-    contact_address: { type: DataTypes.TEXT, allowNull: true }, // قد يكون مختلفاً عن location المشروع
-    contact_phone: { type: DataTypes.STRING(20), allowNull: true },
-    contact_bank_account: { type: DataTypes.STRING(100), allowNull: true },
     
-    // === حقل سبب الرفض (من تعديل سابق) ===
     rejection_reason: { type: DataTypes.TEXT, allowNull: true },
 
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     
-    user_id: {
+    user_id: { // FK لـ userss
       type: DataTypes.INTEGER,
       allowNull: false,
       references: { model: 'userss', key: 'id' },
-      onUpdate: 'CASCADE', onDelete: 'SET NULL',
+      onUpdate: 'CASCADE', onDelete: 'SET NULL', // أو CASCADE
     },
-    office_id: {
+    office_id: { // FK لـ offices
       type: DataTypes.INTEGER,
-      allowNull: true, //  مبدئياً true، لكن في طلب الإنشاء المبدئي سيكون مطلوباً
+      allowNull: true, //  لأن الطلب المبدئي يربطه بمكتب
       references: { model: 'offices', key: 'id' },
       onUpdate: 'CASCADE', onDelete: 'SET NULL',
     },
   }, {
     timestamps: false,
-    underscored: true,
+    underscored: true, //  لاستخدام user_id, office_id في قاعدة البيانات
   });
 
   Project.associate = (models) => {
-    Project.belongsTo(models.User, { foreignKey: 'user_id', as: 'user' });
-    Project.belongsTo(models.Office, { foreignKey: 'office_id', as: 'office' });
-    // Project.hasMany(models.Review, { foreignKey: 'project_id', as: 'reviews' });
+    Project.belongsTo(models.User, { //  اسم الموديل User كما هو معرف في Sequelize
+      foreignKey: 'user_id',
+      as: 'user',
+    });
+    Project.belongsTo(models.Office, { //  اسم الموديل Office
+      foreignKey: 'office_id',
+      as: 'office',
+    });
   };
 
   return Project;
