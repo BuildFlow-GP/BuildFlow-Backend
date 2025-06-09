@@ -548,7 +548,7 @@ router.get('/:id', authenticate, async (req, res) => {
         { model: User, as: 'user', attributes: { exclude: ['password_hash'] } },
         { model: Office, as: 'office' },
         { model: Company, as: 'company', required: false },
-        { model: ProjectDesign, as: 'projectDesign', required: false } // ✅  تضمين تفاصيل التصميم
+        { model: ProjectDesign, as: 'projectDesign', required: false } 
       ]
     });
 
