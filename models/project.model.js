@@ -41,6 +41,30 @@ module.exports = (sequelize, DataTypes) => {
 
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     
+
+     proposed_payment_amount: { //  المبلغ المقترح من المكتب
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true
+    },
+    payment_notes: { //  ملاحظات المكتب على الدفع
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    payment_status: { //  لتتبع حالة الدفع
+      type: DataTypes.STRING(50),
+      allowNull: true, //  قد يكون 'Pending', 'Paid', 'Failed'
+      defaultValue: 'Pending'
+    },
+
+    // ✅✅✅ حقل جديد لتقدم المشروع ✅✅✅
+    progress_stage: { //  يمثل رقم المرحلة الحالية (مثلاً 0 إلى 5)
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0 //  أو 1 إذا كانت المرحلة الأولى تبدأ بـ 1
+    },
+    //  يمكنكِ تعريف المراحل كنصوص في مكان ما في تطبيقك (مثلاً 5 مراحل)
+    //  1: Initial Design, 2: Revisions, 3: Finalizing 2D, 4: 3D Modeling, 5: Delivery
+    
     user_id: { // FK لـ userss
       type: DataTypes.INTEGER,
       allowNull: false,

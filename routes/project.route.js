@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Project, Notification,Review, User, Company, Office } = require('../models');
+const { ProjectDesign, Project, Notification,Review, User, Company, Office } = require('../models');
 const authenticate = require('../middleware/authenticate');
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
@@ -66,7 +66,6 @@ router.get('/suggestions', async (req, res) => {
   }
 });
 
-module.exports = router;
 
 
 // =======================
@@ -500,4 +499,393 @@ router.put('/:projectId/submit-final-details', authenticate, async (req, res) =>
     res.status(500).json({ message: 'Failed to submit final project details.' });
   }
 });
+
+
+// === إعدادات Multer لرفع ملفات 2D ===
+// يمكنكِ إنشاء مجلدات فرعية مثل uploads/project_documents/2d/
+const projectDocumentStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    //  تأكدي أن هذا المجلد موجود أو قومي بإنشائه
+    cb(null, 'uploads/project_documents/2d/'); 
+  },
+  filename: function (req, file, cb) {
+    // اسم فريد للملف: projectId-documentType-timestamp-originalname
+    // documentType يمكن أن يمرر كـ query param أو يتم تحديده بناءً على الـ route
+    const documentType = '2d'; //  في هذه الحالة هو دائماً 2d
+    cb(null, `${req.params.projectId}-${documentType}-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+
+const projectDocumentFileFilter = (req, file, cb) => {
+    //  تحديد أنواع الملفات المسموح بها لملفات 2D (مثلاً PDF, DWG, ZIP)
+    const allowedMimeTypes = ['application/pdf', 'image/vnd.dwg', 'application/acad', 'application/zip', 'application/x-zip-compressed'];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        console.log("Attempted to upload invalid file type for 2D document:", file.mimetype);
+        cb(new Error('Invalid file type for 2D document. Allowed types: PDF, DWG, ZIP.'), false);
+    }
+};
+
+const uploadProjectDocument = multer({ 
+    storage: projectDocumentStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, //  حد أقصى 10MB (يمكنكِ تعديله)
+    fileFilter: projectDocumentFileFilter
+});
+
+
+// =======================
+// GET /projects/:id — Get single project (مُعدَّل ليشمل كل التفاصيل)
+// =======================
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const currentUserId = req.user.id;
+    const currentUserType = req.user.userType.toLowerCase();
+
+    const project = await Project.findByPk(projectId, {
+      include: [
+        { model: User, as: 'user', attributes: { exclude: ['password_hash'] } },
+        { model: Office, as: 'office' },
+        { model: Company, as: 'company', required: false },
+        { model: ProjectDesign, as: 'projectDesign', required: false } // ✅  تضمين تفاصيل التصميم
+      ]
+    });
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // التحقق من الصلاحية
+    const isOwner = project.user_id === currentUserId && currentUserType === 'individual';
+    const isAssignedOffice = project.office_id === currentUserId && currentUserType === 'office';
+    //  يمكنكِ إضافة isAssignedCompany أو isAdmin إذا لزم الأمر
+
+    if (!isOwner && !isAssignedOffice /* && !isAdmin */) {
+        return res.status(403).json({ message: 'Forbidden: You are not authorized to view this project.' });
+    }
+    
+    const formattedProject = project.toJSON();
+    // تعديل مسارات الصور للمرفقات (إذا احتجتِ لها كـ URLs كاملة)
+    const formatImagePath = (imagePath) => {
+        if (imagePath && !imagePath.startsWith('http')) {
+            return `${BASE_URL}/${imagePath.replace(/\\/g, '/')}`;
+        }
+        return imagePath;
+    };
+
+    if (formattedProject.user) formattedProject.user.profile_image = formatImagePath(formattedProject.user.profile_image);
+    if (formattedProject.office) formattedProject.office.profile_image = formatImagePath(formattedProject.office.profile_image);
+    if (formattedProject.company) formattedProject.company.profile_image = formatImagePath(formattedProject.company.profile_image);
+    
+    // تعديل مسارات ملفات المشروع لتكون URLs كاملة
+    formattedProject.license_file = formatImagePath(formattedProject.license_file);
+    formattedProject.agreement_file = formatImagePath(formattedProject.agreement_file);
+    formattedProject.document_2d = formatImagePath(formattedProject.document_2d);
+    formattedProject.document_3d = formatImagePath(formattedProject.document_3d);
+
+
+    res.json(formattedProject);
+  } catch (err) {
+    console.error('Error fetching project details:', err);
+    res.status(500).json({ message: 'Failed to fetch project details' });
+  }
+});
+
+
+
+// =====================================================================
+//  PUT /api/projects/:projectId/propose-payment (جديد)
+//  - للمكتب لاقتراح سعر للمشروع
+// =====================================================================
+router.put('/:projectId/propose-payment', authenticate, async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { payment_amount, payment_notes } = req.body;
+    const officeId = req.user.id;
+    const officeName = req.user.name || 'The Office';
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can propose payment.' });
+    }
+
+    if (payment_amount === undefined || payment_amount === null || isNaN(parseFloat(payment_amount)) || parseFloat(payment_amount) <= 0) {
+      return res.status(400).json({ message: 'Valid payment_amount is required.' });
+    }
+
+    const project = await Project.findByPk(projectId, {
+      include: [{ model: User, as: 'user', attributes: ['id', 'name'] }] //  لجلب user_id و اسم المستخدم
+    });
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+
+    if (project.office_id !== officeId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the assigned office for this project.' });
+    }
+    
+    //  تحديد الحالات التي يمكن للمكتب فيها اقتراح سعر
+    const allowedStatusForProposal = ['Details Submitted - Pending Office Review', 'Awaiting Payment Proposal by Office'];
+    if (!allowedStatusForProposal.includes(project.status)) {
+      return res.status(400).json({ message: `Cannot propose payment. Project status is '${project.status}'.` });
+    }
+
+    project.proposed_payment_amount = parseFloat(payment_amount);
+    project.payment_notes = payment_notes || null;
+    project.status = 'Payment Proposal Sent'; // أو 'Awaiting User Payment'
+    project.payment_status = 'Pending User Action'; // أو 'Pending'
+    
+    await project.save();
+
+    // إرسال إشعار للمستخدم
+    if (project.user_id) {
+      try {
+        await Notification.create({
+          recipient_id: project.user_id,
+          recipient_type: 'individual', //  تأكدي أن هذا يطابق userType في توكن المستخدم
+          actor_id: officeId,
+          actor_type: 'office',
+          notification_type: 'OFFICE_PROPOSED_PAYMENT',
+          message: `Office '${officeName}' has proposed a payment of ${payment_amount} JOD for your project: '${project.name}'.`,
+          target_entity_id: project.id,
+          target_entity_type: 'project',
+        });
+      } catch (notificationError) {
+        console.error('Failed to create payment proposal notification:', notificationError);
+      }
+    }
+
+    res.json({ message: 'Payment proposal submitted successfully.', project });
+
+  } catch (error) {
+    console.error('Error proposing payment:', error);
+    res.status(500).json({ message: 'Failed to propose payment.' });
+  }
+});
+
+
+// =====================================================================
+// POST /api/projects/:projectId/upload-document2d (جديد)
+//  - للمكتب لرفع ملف 2D
+// =====================================================================
+router.post('/:projectId/upload-document2d', authenticate, uploadProjectDocument.single('document2dFile'), async (req, res) => {
+  // 'document2dFile' هو اسم الحقل الذي سيرسله Flutter
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const officeId = req.user.id; // المكتب الحالي
+    const officeName = req.user.name || 'The Office';
+
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can upload project documents.' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded or file type not allowed by filter.' });
+    }
+
+    const project = await Project.findByPk(projectId, {
+        include: [{model: User, as: 'user', attributes: ['id']}] // لجلب user_id لإرسال الإشعار
+    });
+    if (!project) {
+      //  إذا لم يتم العثور على المشروع، قد تحتاجين لحذف الملف الذي تم رفعه (أو تركه)
+      // fs.unlinkSync(req.file.path); //  مثال لحذف الملف (يتطلب import fs)
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.office_id !== officeId) {
+      // fs.unlinkSync(req.file.path);
+      return res.status(403).json({ message: 'Forbidden: You are not the assigned office.' });
+    }
+
+    const filePath = `uploads/project_documents/2d/${req.file.filename}`;
+    project.document_2d = filePath; //  تحديث حقل المشروع
+    await project.save();
+
+    //  إرسال إشعار للمستخدم
+    if (project.user_id) {
+        try {
+            await Notification.create({
+                recipient_id: project.user_id,
+                recipient_type: 'individual',
+                actor_id: officeId,
+                actor_type: 'office',
+                notification_type: 'OFFICE_UPLOADED_2D_DOCUMENT',
+                message: `Office '${officeName}' has uploaded the 2D documents for your project: '${project.name}'.`,
+                target_entity_id: project.id,
+                target_entity_type: 'project',
+            });
+        } catch (e) { console.error("Failed to create 2D upload notification", e); }
+    }
+
+
+    res.json({ 
+      message: '2D document uploaded successfully.', 
+      filePath: filePath, //  مسار الملف على السيرفر
+      project: project 
+    });
+
+  } catch (error) {
+    console.error('Error uploading 2D document:', error);
+    // إذا كان الخطأ من multer بسبب نوع الملف (من fileFilter)
+    if (error.message && error.message.includes('Invalid file type')) {
+        return res.status(400).json({ message: error.message });
+    }
+    if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File too large.' });
+    }
+    res.status(500).json({ message: 'Failed to upload 2D document.' });
+  }
+});
+
+
+router.post('/:projectId/upload-document3d', authenticate, uploadProjectDocument.single('document3dFile'), async (req, res) => {
+  // 'document3dFile' هو اسم الحقل الذي سيرسله Flutter
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const officeId = req.user.id; // المكتب الحالي
+    const officeName = req.user.name || 'The Office';
+
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can upload project documents.' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded or file type not allowed by filter.' });
+    }
+
+    const project = await Project.findByPk(projectId, {
+        include: [{model: User, as: 'user', attributes: ['id']}] // لجلب user_id لإرسال الإشعار
+    });
+    if (!project) {
+      //  إذا لم يتم العثور على المشروع، قد تحتاجين لحذف الملف الذي تم رفعه (أو تركه)
+      // fs.unlinkSync(req.file.path); //  مثال لحذف الملف (يتطلب import fs)
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.office_id !== officeId) {
+      // fs.unlinkSync(req.file.path);
+      return res.status(403).json({ message: 'Forbidden: You are not the assigned office.' });
+    }
+
+    const filePath = `uploads/project_documents/3d/${req.file.filename}`;
+    project.document_3d = filePath; //  تحديث حقل المشروع
+    await project.save();
+
+    //  إرسال إشعار للمستخدم
+    if (project.user_id) {
+        try {
+            await Notification.create({
+                recipient_id: project.user_id,
+                recipient_type: 'individual',
+                actor_id: officeId,
+                actor_type: 'office',
+                notification_type: 'OFFICE_UPLOADED_3D_DOCUMENT',
+                message: `Office '${officeName}' has uploaded the 3D documents for your project: '${project.name}'.`,
+                target_entity_id: project.id,
+                target_entity_type: 'project',
+            });
+        } catch (e) { console.error("Failed to create 3D upload notification", e); }
+    }
+
+
+    res.json({ 
+      message: '3D document uploaded successfully.', 
+      filePath: filePath, //  مسار الملف على السيرفر
+      project: project 
+    });
+
+  } catch (error) {
+    console.error('Error uploading 3D document:', error);
+    // إذا كان الخطأ من multer بسبب نوع الملف (من fileFilter)
+    if (error.message && error.message.includes('Invalid file type')) {
+        return res.status(400).json({ message: error.message });
+    }
+    if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File too large.' });
+    }
+    res.status(500).json({ message: 'Failed to upload 3D document.' });
+  }
+});
+
+
+
+// =====================================================================
+// PUT /api/projects/:projectId/progress (جديد)
+//  - للمكتب لتحديث مرحلة تقدم المشروع
+// =====================================================================
+router.put('/:projectId/progress', authenticate, async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { stage } = req.body; //  نتوقع stage كرقم (مثلاً 1 إلى 5)
+    const officeId = req.user.id;
+    const officeName = req.user.name || 'The Office';
+
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can update project progress.' });
+    }
+
+    if (stage === undefined || stage === null || isNaN(parseInt(stage)) || parseInt(stage) < 0 /* أو 1 */ || parseInt(stage) > 5 /* عدد المراحل الكلي */) {
+      return res.status(400).json({ message: 'Valid progress stage (e.g., 0-5) is required.' });
+    }
+
+    const project = await Project.findByPk(projectId, {
+         include: [{model: User, as: 'user', attributes: ['id']}]
+    });
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.office_id !== officeId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the assigned office.' });
+    }
+    
+    // يمكنكِ إضافة منطق هنا لمنع الرجوع لمرحلة سابقة إذا أردتِ
+    // if (parseInt(stage) < project.progress_stage) {
+    //   return res.status(400).json({ message: 'Cannot revert to a previous progress stage.' });
+    // }
+
+
+    project.progress_stage = parseInt(stage);
+    // يمكنكِ هنا تحديث حالة المشروع الكلية (`project.status`) إذا كان الوصول لمرحلة معينة يعني اكتمال المشروع
+    // مثلاً, إذا stage === 5 (آخر مرحلة)
+    // if (project.progress_stage === 5 && project.status !== 'Completed') {
+    //    project.status = 'Completed'; //  أو 'Pending Final Delivery'
+    // }
+
+    await project.save();
+
+    //  إرسال إشعار للمستخدم بتحديث التقدم
+    if (project.user_id) {
+        // يمكنكِ جعل رسالة الإشعار أكثر تفصيلاً بناءً على رقم المرحلة
+        let progressMessage = `Office '${officeName}' has updated the progress for your project '${project.name}' to stage ${project.progress_stage}.`;
+        //  مثال لرسالة مخصصة:
+        //  const stageLabels = ["Planning", "Design", "Review", "3D Modeling", "Delivery"];
+        //  if (project.progress_stage > 0 && project.progress_stage <= stageLabels.length) {
+        //      progressMessage = `Project '${project.name}' has entered the '${stageLabels[project.progress_stage - 1]}' stage.`;
+        //  }
+
+        try {
+            await Notification.create({
+                recipient_id: project.user_id,
+                recipient_type: 'individual',
+                actor_id: officeId,
+                actor_type: 'office',
+                notification_type: 'PROJECT_PROGRESS_UPDATED',
+                message: progressMessage,
+                target_entity_id: project.id,
+                target_entity_type: 'project',
+            });
+        } catch (e) { console.error("Failed to create progress update notification", e); }
+    }
+
+
+    res.json({ message: 'Project progress updated successfully.', project });
+
+  } catch (error) {
+    console.error('Error updating project progress:', error);
+    res.status(500).json({ message: 'Failed to update project progress.' });
+  }
+});
+
 module.exports = router;
