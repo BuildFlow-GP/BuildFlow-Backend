@@ -219,6 +219,67 @@ router.get('/:officeId/officeprojects', async (req, res) => {
 });
 
 
+// في office.route.js (أو مكان مشابه)
+
+// GET /api/offices/me/projects - لجلب المشاريع المعينة للمكتب الحالي المسجل
+router.get('/me/projects', authenticate, async (req, res) => {
+  try {
+    // 1. التأكد من أن المستخدم الحالي هو مكتب
+    if (!req.user || req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only authenticated offices can access their projects.' });
+    }
+    
+    const officeId = req.user.id; //  ✅✅✅ استخدام ID المكتب من التوكن ✅✅✅
+    const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+
+    // لا داعي لـ Office.findByPk(officeId) هنا لأن authenticate قام بالتحقق من وجود المكتب
+
+    const officeProjects = await Project.findAll({
+      where: { office_id: officeId }, // جلب المشاريع بناءً على office_id من التوكن
+      order: [['created_at', 'DESC']],
+      include: [ // يمكنك تضمين معلومات المستخدم مالك المشروع
+        {
+          model: User,
+          as: 'user', // تأكدي أن هذه العلاقة (Project.belongsTo(User, {as: 'user'})) معرفة في Project model
+          attributes: ['id', 'name', 'profile_image'], // استبعاد password_hash
+          required: false 
+        },
+        {
+          model: Company, // إذا كانت هناك شركة مرتبطة بالمشروع
+          as: 'company',
+          attributes: ['id', 'name', 'profile_image'],
+          required: false
+        }
+        // لا داعي لتضمين المكتب هنا، لأننا بالفعل في سياق المكتب
+      ],
+      // attributes: ['id', 'name', 'status', 'start_date', 'end_date', /* ... أي حقول أخرى تحتاجينها ... */ ],
+      //  ✅ لإرجاع كل حقول المشروع، أزيلي 'attributes' من هنا أو حددي كل ما تحتاجينه
+    });
+
+    if (!officeProjects || officeProjects.length === 0) {
+      return res.json([]);
+    }
+
+    // تعديل روابط الصور (إذا لزم الأمر، للـ user أو company)
+    const updatedProjects = officeProjects.map(projectInstance => {
+      const p = projectInstance.toJSON();
+      if (p.user && p.user.profile_image && !p.user.profile_image.startsWith('http')) {
+        p.user.profile_image = `${baseUrl}/${p.user.profile_image.replace(/\\/g, '/')}`;
+      }
+      if (p.company && p.company.profile_image && !p.company.profile_image.startsWith('http')) {
+        p.company.profile_image = `${baseUrl}/${p.company.profile_image.replace(/\\/g, '/')}`;
+      }
+      return p;
+    });
+
+    res.json(updatedProjects);
+
+  } catch (error) {
+    console.error('Error fetching projects for office:', error);
+    res.status(500).json({ message: 'Failed to fetch office projects.' });
+  }
+});
+
 
 // في ملف routes/office.js أو ملف مناسب
 

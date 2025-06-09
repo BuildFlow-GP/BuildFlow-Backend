@@ -13,9 +13,6 @@ const generateToken = (id, userType) => {
   return jwt.sign({ id, userType }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
-// =======================
-// Signup
-// =======================
 router.post('/signup', async (req, res) => {
   const { name, email, password, phone, userType } = req.body;
 
@@ -69,10 +66,6 @@ router.post('/signup', async (req, res) => {
     res.status(500).json({ error: 'Signup failed' });
   }
 });
-
-// =======================
-// Login
-// =======================
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
