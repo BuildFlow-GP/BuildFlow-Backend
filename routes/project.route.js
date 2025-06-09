@@ -4,6 +4,34 @@ const { Project, Notification,Review, User, Company, Office } = require('../mode
 const authenticate = require('../middleware/authenticate');
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
+const multer = require('multer');
+const path = require('path');
+
+// إعدادات تخزين Multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/agreements/'); // تأكدي أن هذا المجلد موجود
+  },
+  filename: function (req, file, cb) {
+    // projectId-timestamp-originalname
+    cb(null, `${req.params.projectId}-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') { // السماح بـ PDF فقط
+        cb(null, true);
+    } else {
+        cb(new Error('Only PDF files are allowed!'), false);
+    }
+};
+
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB حد أقصى
+    fileFilter: fileFilter
+});
+
 // =======================
 // GET /projects — Get all projects
 // =======================
@@ -344,4 +372,132 @@ router.put('/:projectId/respond', authenticate, async (req, res) => {
   }
 });
 
+
+router.post('/:projectId/upload-agreement', authenticate, upload.single('agreementFile'), async (req, res) => {
+  // 'agreementFile' هو اسم الحقل الذي سيرسله Flutter
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded or file type not allowed.' });
+    }
+
+    const projectId = req.params.projectId;
+    const project = await Project.findByPk(projectId);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Forbidden: You are not the owner of this project.' });
+    }
+
+    // مسار الملف النسبي (أو اسم الملف فقط إذا كان BASE_URL سيهتم بالباقي)
+    const filePath = `uploads/agreements/${req.file.filename}`; 
+
+    project.agreement_file = filePath;
+    await project.save();
+
+    res.json({ 
+      message: 'Agreement file uploaded successfully.', 
+      filePath: filePath, // أرجعي المسار ليستخدمه Flutter
+      project: project // المشروع المحدث
+    });
+
+  } catch (error) {
+    console.error('Error uploading agreement file:', error);
+    if (error.message && error.message.includes('Only PDF files are allowed!')) {
+        return res.status(400).json({ message: error.message });
+    }
+    if (error.code === 'LIMIT_FILE_SIZE') { // خطأ من multer بسبب حجم الملف
+        return res.status(400).json({ message: 'File too large. Max 5MB allowed.' });
+    }
+    res.status(500).json({ message: 'Failed to upload agreement file.' });
+  }
+});
+
+
+router.put('/:projectId/submit-final-details', authenticate, async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+    const userId = req.user.id; // ID المستخدم من التوكن
+    const userName = req.user.name || 'The User'; // اسم المستخدم من التوكن (لرسالة الإشعار)
+
+    const project = await Project.findByPk(projectId, {
+        include: [{ model: Office, as: 'office', attributes: ['id', 'name']}] // لجلب office_id واسم المكتب
+    });
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+
+    // 1. التحقق من ملكية المشروع
+    if (project.user_id !== userId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the owner of this project.' });
+    }
+
+    // 2. التحقق من أن حالة المشروع الحالية تسمح بهذا الإجراء
+    //    (مثلاً، يجب أن يكون المكتب قد وافق مبدئياً)
+    if (project.status !== 'Office Approved - Awaiting Details') { // أو الحالة المناسبة التي يكون فيها المستخدم يعبئ البيانات
+      return res.status(400).json({ message: `Cannot submit final details. Project status is '${project.status}'. Required status is 'Office Approved - Awaiting Details'.` });
+    }
+
+    // 3. (اختياري) التحقق من أن ملف الاتفاقية تم رفعه بالفعل (أن حقل agreement_file في المشروع له قيمة)
+    if (!project.agreement_file || project.agreement_file.trim() === '') {
+        // ملاحظة: إذا كان API رفع الملفات هو الذي يحدث agreement_file، فهذا التحقق قد يكون مفيداً
+        // إذا كان هذا الـ API هو الذي سيحدث agreement_file (بناءً على req.body)، فهذا التحقق ليس هنا مكانه
+        // بناءً على تصميمنا، uploadProjectAgreement يحدث الحقل، لذا هذا التحقق جيد.
+        return res.status(400).json({ message: 'Agreement file has not been uploaded for this project yet.' });
+    }
+    
+    // (اختياري) إذا كنتِ سترسلين مسار الملف من Flutter وتحدثينه هنا مرة أخرى
+    // (غير ضروري إذا كان API الرفع قد قام بذلك)
+    // const { agreement_file_path } = req.body;
+    // if (agreement_file_path) {
+    //   project.agreement_file = agreement_file_path;
+    // }
+
+
+    // 4. تغيير حالة المشروع
+    project.status = 'Details Submitted - Pending Office Review'; // أو 'Awaiting Payment Proposal by Office' أو حالة مناسبة
+     // ✅✅✅  تحديث start_date إلى الوقت الحالي ✅✅✅
+    // إذا لم يكن قد تم تعيينه من قبل، أو إذا أردتِ تحديثه دائماً عند هذه النقطة
+    if (!project.start_date) { //  فقط إذا لم يكن معيناً من قبل
+        project.start_date = new Date(); 
+    }
+    // أو إذا أردتِ تحديثه دائماً عند هذه الخطوة:
+    // project.start_date = new Date(); 
+    // اختاري السلوك الذي يناسبكِ. إذا كان المستخدم قد أدخل تاريخ بدء متوقع سابقاً،
+    // قد لا ترغبين في الكتابة فوقه هنا. إذا كان هذا هو تاريخ البدء "الفعلي" للمرحلة التالية،
+    // فقد يكون تحديثه دائماً مناسباً.
+    // سأفترض حالياً أننا نحدثه فقط إذا لم يكن موجوداً.
+
+    
+    await project.save();
+
+    // 5. إنشاء إشعار للمكتب
+    if (project.office_id && project.office) { // تأكدي أن office_id واسم المكتب موجودان
+      try {
+        await Notification.create({
+          recipient_id: project.office_id,
+          recipient_type: 'office',
+          actor_id: userId,
+          actor_type: req.user.userType.toLowerCase(), // 'individual'
+          notification_type: 'USER_SUBMITTED_PROJECT_DETAILS',
+          message: `User '${userName}' has submitted the full details for project: '${project.name}'. Please review and propose payment.`,
+          target_entity_id: project.id,
+          target_entity_type: 'project',
+        });
+        console.log(`Notification created for office ${project.office_id} for project ${project.id} details submission.`);
+      } catch (notificationError) {
+        console.error('Failed to create notification for office about project details submission:', notificationError);
+      }
+    }
+
+    // إرجاع المشروع المحدث (مع الحالة الجديدة)
+    res.json({ message: 'Project details submitted successfully. Awaiting office review.', project });
+
+  } catch (error) {
+    console.error('Error submitting final project details:', error);
+    res.status(500).json({ message: 'Failed to submit final project details.' });
+  }
+});
 module.exports = router;
