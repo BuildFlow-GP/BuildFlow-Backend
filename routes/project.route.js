@@ -725,6 +725,112 @@ router.post('/:projectId/upload-final2d', authenticate, uploadFinal2D.single('fi
   }
 });
 
+router.put('/:projectId/propose-payment', authenticate, async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { payment_amount, payment_notes } = req.body;
+    
+    // معلومات المكتب من التوكن
+    const officeId = req.user.id; 
+    const officeName = req.user.name || 'The Design Office'; //  اسم المكتب لرسالة الإشعار
+
+    // 1. التحقق من أن المستخدم الحالي هو مكتب
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can propose payment for a project.' });
+    }
+
+    // 2. التحقق من أن payment_amount صحيح
+    if (payment_amount === undefined || payment_amount === null || isNaN(parseFloat(payment_amount)) || parseFloat(payment_amount) <= 0) {
+      return res.status(400).json({ message: 'A valid positive payment_amount is required.' });
+    }
+
+    // 3. جلب المشروع والتحقق من وجوده ومن أن المكتب الحالي هو المكتب المعين
+    const project = await Project.findByPk(projectId, {
+      include: [{ model: User, as: 'user', attributes: ['id', 'name'] }] // لجلب user_id و اسم المستخدم للإشعار
+    });
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+
+    if (project.office_id !== officeId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the assigned office for this project.' });
+    }
+
+    // 4. التحقق من أن حالة المشروع تسمح باقتراح الدفع
+    //    (مثلاً، بعد أن يرسل المستخدم كل تفاصيل المشروع)
+    const allowedStatusForProposal = [
+        'Details Submitted - Pending Office Review', //  الحالة التي يكون فيها المستخدم قد أرسل التفاصيل
+        'Awaiting Payment Proposal by Office' //  قد تكون هذه حالة مخصصة
+        // يمكنكِ إضافة حالات أخرى إذا لزم الأمر
+    ]; 
+    if (!allowedStatusForProposal.includes(project.status)) {
+      return res.status(400).json({ 
+        message: `Cannot propose payment at this stage. Project status is '${project.status}'. Required status: '${allowedStatusForProposal.join("' or '")}'.` 
+      });
+    }
+
+    // 5. تحديث حقول المشروع
+    project.proposed_payment_amount = parseFloat(payment_amount);
+    project.payment_notes = payment_notes || null; //  إذا لم يتم إرسال ملاحظات، اجعلها null
+    project.status = 'Payment Proposal Sent'; //  أو 'Awaiting User Payment'
+    project.payment_status = 'Pending User Action'; //  أو 'Pending Payment'
+
+    await project.save();
+
+    // 6. إنشاء وإرسال إشعار للمستخدم مالك المشروع
+    if (project.user_id && project.user) { // تأكد أن user_id و user (من include) موجودان
+      try {
+        await Notification.create({
+          recipient_id: project.user_id,
+          recipient_type: 'individual', //  أو 'user' حسب ما تستخدمينه لنوع المستخدم
+          actor_id: officeId,
+          actor_type: 'office',
+          notification_type: 'OFFICE_PROPOSED_PAYMENT',
+          message: `Office '${officeName}' has sent a payment proposal of ${currencyFormatForNotification(project.proposed_payment_amount)} for your project: '${project.name}'. ${project.payment_notes ? 'Notes: ' + project.payment_notes : ''}`,
+          target_entity_id: project.id,
+          target_entity_type: 'project',
+        });
+        console.log(`Notification sent to user ${project.user_id} regarding payment proposal for project ${project.id}.`);
+      } catch (notificationError) {
+        console.error('Failed to create payment proposal notification for user:', notificationError);
+        //  لا توقف العملية بسبب فشل الإشعار، لكن سجل الخطأ
+      }
+    }
+
+    // 7. إرجاع المشروع المحدث
+    //  يمكنكِ إرجاع المشروع كاملاً مع تضمين user و office و projectDesign إذا أردتِ
+    //  للتناسق مع GET /projects/:id
+    const updatedProjectWithDetails = await Project.findByPk(projectId, {
+        include: [
+            { model: User, as: 'user', attributes: { exclude: ['password_hash'] } },
+            { model: Office, as: 'office' },
+            { model: ProjectDesign, as: 'projectDesign', required: false }
+        ]
+    });
+
+
+    res.status(200).json({ 
+      message: 'Payment proposal submitted successfully. User has been notified.', 
+      project: updatedProjectWithDetails //  إرجاع المشروع المحدث بكل تفاصيله
+    });
+
+  } catch (error) {
+    console.error('Error in /projects/:projectId/propose-payment route:', error);
+    if (error.name === 'SequelizeValidationError') {
+        return res.status(400).json({ message: "Validation Error", errors: error.errors.map(e => e.message)});
+    }
+    res.status(500).json({ message: 'Failed to submit payment proposal.' });
+  }
+});
+
+//  دالة مساعدة لتنسيق العملة في رسالة الإشعار (يمكن وضعها في ملف helpers)
+function currencyFormatForNotification(amount) {
+    if (amount == null) return 'N/A';
+    //  هذا تنسيق بسيط، يمكنكِ استخدام مكتبة إذا أردتِ تنسيقاً أكثر تعقيداً
+    return `${amount.toFixed(2)} JOD`; 
+}
+
 
 
 module.exports = router;
