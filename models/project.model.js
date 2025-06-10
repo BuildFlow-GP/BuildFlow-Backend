@@ -36,6 +36,10 @@ module.exports = (sequelize, DataTypes) => {
     agreement_file: { type: DataTypes.TEXT, allowNull: true }, // هذا هو الملف من الخطوة 2
     document_2d: { type: DataTypes.TEXT, allowNull: true },
     document_3d: { type: DataTypes.TEXT, allowNull: true },
+    document_1: { type: DataTypes.TEXT, allowNull: true },
+    document_2: { type: DataTypes.TEXT, allowNull: true },
+    document_3: { type: DataTypes.TEXT, allowNull: true },
+    document_4: { type: DataTypes.TEXT, allowNull: true },
     
     rejection_reason: { type: DataTypes.TEXT, allowNull: true },
 
