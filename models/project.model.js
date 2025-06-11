@@ -24,6 +24,7 @@ module.exports = (sequelize, DataTypes) => {
         ]]
       }
     },
+    planner5dUrl: { type: DataTypes.TEXT, allowNull: true },
     budget: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     start_date: { type: DataTypes.DATE, allowNull: true },
     end_date: { type: DataTypes.DATE, allowNull: true },
