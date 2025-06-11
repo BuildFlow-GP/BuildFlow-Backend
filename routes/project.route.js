@@ -145,7 +145,6 @@ router.get('/suggestions', async (req, res) => {
   }
 });
 
-module.exports = router;
 
 
 // =======================
