@@ -761,7 +761,8 @@ router.put('/:projectId/propose-payment', authenticate, async (req, res) => {
     //    (مثلاً، بعد أن يرسل المستخدم كل تفاصيل المشروع)
     const allowedStatusForProposal = [
         'Details Submitted - Pending Office Review', //  الحالة التي يكون فيها المستخدم قد أرسل التفاصيل
-        'Awaiting Payment Proposal by Office' //  قد تكون هذه حالة مخصصة
+        'Awaiting Payment Proposal by Office',
+        'Payment Proposal Sent' //  قد تكون هذه حالة مخصصة
         // يمكنكِ إضافة حالات أخرى إذا لزم الأمر
     ]; 
     if (!allowedStatusForProposal.includes(project.status)) {
