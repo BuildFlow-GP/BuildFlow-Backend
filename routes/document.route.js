@@ -12,12 +12,9 @@ const UPLOADS_DIR = path.join(__dirname, '..', 'uploads'); //  يفترض أن u
 //  GET /api/documents/*  -  لخدمة (إرسال) أي ملف من مجلد uploads
 //  مثال للـ URL المطلوب: /api/documents/agreements/21/agreement-123.pdf
 //  ================================================================
-router.get('/*', authenticate, async (req, res) => { //  استخدام authenticate لحماية الوصول
+  router.get('/:filePath(*)', authenticate, async (req, res) => {
+  const requestedFilePathRelative = req.params.filePath;
   try {
-    // req.params[0] سيحتوي على كل شيء بعد /api/documents/
-    // مثال: "agreements/21/agreement-123.pdf"
-    const requestedFilePathRelative = req.params[0];
-
     if (!requestedFilePathRelative) {
       return res.status(400).json({ message: 'File path is required.' });
     }
