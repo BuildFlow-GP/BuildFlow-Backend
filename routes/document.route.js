@@ -84,7 +84,6 @@ router.get('/agreementdocument', /* authenticate, */ async (req, res) => {
 // router.get('/*', authenticate, async (req, res) => { /* ... */ });
 
 
-module.exports = router;
 // ================================================================
 // GET /*  -  لخدمة (إرسال) أي ملف من مجLD uploads
 //  إذا تم ربط هذا الـ router بـ /api/documents في index.js،
