@@ -15,6 +15,8 @@ module.exports = (sequelize, DataTypes) => {
           'Office Rejected',
           'Details Submitted - Pending Office Review',
           'Awaiting Payment Proposal',
+          'Awaiting Payment Proposal by Office', // ✅  أضيفي هذه إذا كنتِ ستستخدمينها
+          'Payment Proposal Sent',  
           'Awaiting User Payment',
           'In Progress', 
           'Completed', 
@@ -22,6 +24,7 @@ module.exports = (sequelize, DataTypes) => {
         ]]
       }
     },
+    planner5dUrl: { type: DataTypes.TEXT, allowNull: true },
     budget: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     start_date: { type: DataTypes.DATE, allowNull: true },
     end_date: { type: DataTypes.DATE, allowNull: true },
@@ -36,8 +39,14 @@ module.exports = (sequelize, DataTypes) => {
     agreement_file: { type: DataTypes.TEXT, allowNull: true }, // هذا هو الملف من الخطوة 2
     document_2d: { type: DataTypes.TEXT, allowNull: true },
     document_3d: { type: DataTypes.TEXT, allowNull: true },
-    
+    architectural_file: { type: DataTypes.TEXT, allowNull: true },
+    structural_file: { type: DataTypes.TEXT, allowNull: true },
+    electrical_file: { type: DataTypes.TEXT, allowNull: true },
+    mechanical_file: { type: DataTypes.TEXT, allowNull: true },
     rejection_reason: { type: DataTypes.TEXT, allowNull: true },
+
+    created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+
 
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     
@@ -90,6 +99,13 @@ module.exports = (sequelize, DataTypes) => {
     Project.belongsTo(models.Office, { //  اسم الموديل Office
       foreignKey: 'office_id',
       as: 'office',
+    });
+
+     Project.hasOne(models.ProjectDesign, { //  افترض أن اسم موديل Sequelize هو ProjectDesign
+      foreignKey: 'project_id',         //  المفتاح الخارجي في جدول project_designs الذي يشير لـ projects
+      as: 'projectDesign',            //  نفس الاسم المستعار المستخدم في include
+      onDelete: 'CASCADE',            //  إذا حذف المشروع، يحذف التصميم المرتبط
+      onUpdate: 'CASCADE'
     });
   };
 
