@@ -28,7 +28,7 @@ router.post('/:projectId', authenticate, async (req, res) => {
 
     // 2. التحقق من أن حالة المشروع تسمح بإضافة/تعديل تفاصيل التصميم
     //    (مثلاً، بعد موافقة المكتب وقبل الـ Submit النهائي من DesignAgreementScreen)
-    if (project.status !== 'Details Submitted - Pending Office Review' /* && project.status !== '...' */) {
+    if (project.status !== 'Office Approved - Awaiting Details' && project.status !== 'Details Submitted - Pending Office Review'  && project.status !==  'Payment Proposal Sent' && project.status !== 'Awaiting User Payment') {
         // يمكنكِ تعديل هذا الشرط ليشمل الحالات الأخرى التي يمكن فيها تعديل تفاصيل التصميم
         return res.status(400).json({ error: `Cannot add/update design details for project in status: ${project.status}` });
     }
