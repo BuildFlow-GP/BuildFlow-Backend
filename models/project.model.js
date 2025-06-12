@@ -20,7 +20,14 @@ module.exports = (sequelize, DataTypes) => {
           'Awaiting User Payment',
           'In Progress', 
           'Completed', 
-          'Cancelled'
+          'Cancelled',
+           'Pending Supervision Approval',     //  عندما يرسل المستخدم طلب إشراف
+          'Supervision Rejected',             //  عندما يرفض المكتب الإشراف
+          'Under Office Supervision',         //  عندما يوافق المكتب على الإشراف ويبدأ العمل
+          'Supervision Stage X Completed',    //  (يمكن إضافة حالات مراحل الإشراف لاحقاً)
+          'Supervision Payment Proposed',     //  إذا كان هناك دفع للإشراف
+          'Awaiting Supervision Payment',     //  إذا كان هناك دفع للإشراف
+          'Supervision Completed'   
         ]]
       }
     },
@@ -44,7 +51,8 @@ module.exports = (sequelize, DataTypes) => {
     electrical_file: { type: DataTypes.TEXT, allowNull: true },
     mechanical_file: { type: DataTypes.TEXT, allowNull: true },
     rejection_reason: { type: DataTypes.TEXT, allowNull: true },
-
+  supervision_payment_amount: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
+  supervision_payment_status: { type: DataTypes.STRING(50), allowNull: true },
     created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 
 
@@ -92,20 +100,30 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Project.associate = (models) => {
-    Project.belongsTo(models.User, { //  اسم الموديل User كما هو معرف في Sequelize
+    Project.belongsTo(models.User, { 
       foreignKey: 'user_id',
       as: 'user',
     });
-    Project.belongsTo(models.Office, { //  اسم الموديل Office
+    Project.belongsTo(models.Office, { 
       foreignKey: 'office_id',
-      as: 'office',
+      as: 'designOffice',
     });
 
-     Project.hasOne(models.ProjectDesign, { //  افترض أن اسم موديل Sequelize هو ProjectDesign
-      foreignKey: 'project_id',         //  المفتاح الخارجي في جدول project_designs الذي يشير لـ projects
-      as: 'projectDesign',            //  نفس الاسم المستعار المستخدم في include
-      onDelete: 'CASCADE',            //  إذا حذف المشروع، يحذف التصميم المرتبط
+     Project.hasOne(models.ProjectDesign, {
+      foreignKey: 'project_id',
+      as: 'projectDesign',
+      onDelete: 'CASCADE',
       onUpdate: 'CASCADE'
+    });
+
+      Project.belongsTo(models.Office, { 
+      foreignKey: 'supervising_office_id', 
+      as: 'supervisingOffice' 
+    });
+    Project.belongsTo(models.Company, { //  افترض أن موديل الشركة اسمه Company
+      foreignKey: 'assigned_company_id', 
+      as: 'assignedCompany',
+      required: false //  لأنها اختيارية
     });
   };
 
