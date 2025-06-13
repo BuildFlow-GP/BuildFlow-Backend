@@ -73,7 +73,6 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'Pending'
     },
 
-    // ✅✅✅ حقل جديد لتقدم المشروع ✅✅✅
     progress_stage: { //  يمثل رقم المرحلة الحالية (مثلاً 0 إلى 5)
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -94,6 +93,19 @@ module.exports = (sequelize, DataTypes) => {
       references: { model: 'offices', key: 'id' },
       onUpdate: 'CASCADE', onDelete: 'SET NULL',
     },
+    supervising_office_id: { // FK لـ offices للإشراف
+      type: DataTypes.INTEGER,
+      allowNull: true, //  لأن الإشراف اختياري في البداية
+      references: { model: 'offices', key: 'id' },
+      onUpdate: 'CASCADE', onDelete: 'SET NULL',
+    },
+    assigned_company_id: { // FK لـ companies
+      type: DataTypes.INTEGER,
+      allowNull: true, //  لأن الشركة قد لا تكون محددة في البداية
+      references: { model: 'companies', key: 'id' },
+      onUpdate: 'CASCADE', onDelete: 'SET NULL',
+    }
+    
   }, {
     timestamps: false,
     underscored: true, //  لاستخدام user_id, office_id في قاعدة البيانات
@@ -104,9 +116,10 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'user_id',
       as: 'user',
     });
+    
     Project.belongsTo(models.Office, { 
       foreignKey: 'office_id',
-      as: 'designOffice',
+      as: 'office',
     });
 
      Project.hasOne(models.ProjectDesign, {

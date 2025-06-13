@@ -31,7 +31,7 @@ db.Company.hasMany(db.Review, { foreignKey: 'company_id' });
 db.Project.hasMany(db.Review, { foreignKey: 'project_id' });
 db.Project.belongsTo(db.User, { foreignKey: 'user_id', as: 'user' });
 db.Project.belongsTo(db.Company, { foreignKey: 'company_id', as: 'company' });
-db.Project.belongsTo(db.Office, { foreignKey: 'office_id', as: 'designOffice' });
+db.Project.belongsTo(db.Office, { foreignKey: 'office_id', as: 'office' });
 db.Project.hasOne(db.ProjectDesign, { foreignKey: 'project_id', as: 'projectDesign' }); // <-- إضافة العلاقة مع تصميم المشروع
 
 // --- User Relationships ---
