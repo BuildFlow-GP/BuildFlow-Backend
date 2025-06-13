@@ -638,7 +638,6 @@ router.put('/byoffice/:id', authenticate, async (req, res) => {
   }
 });
 
-// POST /api/projects/:projectId/upload-license - يرفعه المستخدم
 router.post('/:projectId/upload-license', authenticate, uploadLicense.single('licenseFile'), async (req, res) => {
   // 'licenseFile' هو اسم الحقل الذي سيرسله Flutter
   try {
@@ -668,7 +667,6 @@ router.post('/:projectId/upload-license', authenticate, uploadLicense.single('li
 });
 
 
-// POST /api/projects/:projectId/upload-architectural - يرفعه المكتب
 router.post('/:projectId/upload-architectural', authenticate, uploadArchitectural.single('architecturalFile'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded or file type not allowed.' });
@@ -695,7 +693,6 @@ router.post('/:projectId/upload-architectural', authenticate, uploadArchitectura
   }
 });
 
-// POST /api/projects/:projectId/upload-final2d - يرفعه المكتب (يحدث document_2d)
 router.post('/:projectId/upload-final2d', authenticate, uploadFinal2D.single('final2dFile'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded or file type not allowed.' });
@@ -836,6 +833,81 @@ function currencyFormatForNotification(amount) {
     //  هذا تنسيق بسيط، يمكنكِ استخدام مكتبة إذا أردتِ تنسيقاً أكثر تعقيداً
     return `${amount.toFixed(2)} JOD`; 
 }
+
+
+router.put('/:projectId/progress', authenticate, async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { stage } = req.body; //  نتوقع stage كرقم (مثلاً 1 إلى 5)
+    const officeId = req.user.id;
+    const officeName = req.user.name || 'The Office';
+
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can update project progress.' });
+    }
+
+    if (stage === undefined || stage === null || isNaN(parseInt(stage)) || parseInt(stage) < 0 /* أو 1 */ || parseInt(stage) > 5 /* عدد المراحل الكلي */) {
+      return res.status(400).json({ message: 'Valid progress stage (e.g., 0-5) is required.' });
+    }
+
+    const project = await Project.findByPk(projectId, {
+         include: [{model: User, as: 'user', attributes: ['id']}]
+    });
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.office_id !== officeId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the assigned office.' });
+    }
+    
+    // يمكنكِ إضافة منطق هنا لمنع الرجوع لمرحلة سابقة إذا أردتِ
+    // if (parseInt(stage) < project.progress_stage) {
+    //   return res.status(400).json({ message: 'Cannot revert to a previous progress stage.' });
+    // }
+
+
+    project.progress_stage = parseInt(stage);
+    // يمكنكِ هنا تحديث حالة المشروع الكلية (`project.status`) إذا كان الوصول لمرحلة معينة يعني اكتمال المشروع
+    // مثلاً, إذا stage === 5 (آخر مرحلة)
+    if (project.progress_stage === 5 && project.status !== 'Completed') {
+       project.status = 'Completed'; //  أو 'Pending Final Delivery'
+    }
+
+    await project.save();
+
+    //  إرسال إشعار للمستخدم بتحديث التقدم
+    if (project.user_id) {
+        // يمكنكِ جعل رسالة الإشعار أكثر تفصيلاً بناءً على رقم المرحلة
+        let progressMessage = `Office '${officeName}' has updated the progress for your project '${project.name}' to stage ${project.progress_stage}.`;
+        //  مثال لرسالة مخصصة:
+        //  const stageLabels = ["Planning", "Design", "Review", "3D Modeling", "Delivery"];
+        //  if (project.progress_stage > 0 && project.progress_stage <= stageLabels.length) {
+        //      progressMessage = `Project '${project.name}' has entered the '${stageLabels[project.progress_stage - 1]}' stage.`;
+        //  }
+
+        try {
+            await Notification.create({
+                recipient_id: project.user_id,
+                recipient_type: 'individual',
+                actor_id: officeId,
+                actor_type: 'office',
+                notification_type: 'PROJECT_PROGRESS_UPDATED',
+                message: progressMessage,
+                target_entity_id: project.id,
+                target_entity_type: 'project',
+            });
+        } catch (e) { console.error("Failed to create progress update notification", e); }
+    }
+
+
+    res.json({ message: 'Project progress updated successfully.', project });
+
+  } catch (error) {
+    console.error('Error updating project progress:', error);
+    res.status(500).json({ message: 'Failed to update project progress.' });
+  }
+});
 
 
 

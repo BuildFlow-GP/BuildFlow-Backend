@@ -90,9 +90,9 @@ router.post('/:projectId/request-supervision', authenticate, async (req, res) =>
     const updatedProject = await Project.findByPk(projectId, { //  لإرجاع المشروع مع أي includes إذا أردت
         include: [
             { model: User, as: 'user', attributes: {exclude: ['password_hash']} },
-            { model: Office, as: 'designOffice', required: false }, //  المكتب المصمم
+            { model: Office, as: 'office', required: false }, //  المكتب المصمم
             { model: Office, as: 'supervisingOffice', required: false }, //  المكتب المشرف
-            { model: Company, as: 'assignedCompany', required: false },
+            { model: Company, as: 'company', required: false },
             { model: ProjectDesign, as: 'projectDesign', required: false }
         ]
     });
@@ -195,9 +195,9 @@ router.put('/:projectId/respond-supervision', authenticate, async (req, res) => 
     const updatedProject = await Project.findByPk(projectId, { /* ... نفس الـ includes من الـ route السابق ... */ 
         include: [
             { model: User, as: 'user', attributes: {exclude: ['password_hash']} },
-            { model: Office, as: 'designOffice', required: false },
+            { model: Office, as: 'office', required: false },
             { model: Office, as: 'supervisingOffice', required: false },
-            { model: Company, as: 'assignedCompany', required: false },
+            { model: Company, as: 'company', required: false },
             { model: ProjectDesign, as: 'projectDesign', required: false }
         ]
     });
