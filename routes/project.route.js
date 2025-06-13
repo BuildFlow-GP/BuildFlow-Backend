@@ -870,9 +870,9 @@ router.put('/:projectId/progress', authenticate, async (req, res) => {
     project.progress_stage = parseInt(stage);
     // يمكنكِ هنا تحديث حالة المشروع الكلية (`project.status`) إذا كان الوصول لمرحلة معينة يعني اكتمال المشروع
     // مثلاً, إذا stage === 5 (آخر مرحلة)
-    // if (project.progress_stage === 5 && project.status !== 'Completed') {
-    //    project.status = 'Completed'; //  أو 'Pending Final Delivery'
-    // }
+    if (project.progress_stage === 5 && project.status !== 'Completed') {
+       project.status = 'Completed'; //  أو 'Pending Final Delivery'
+    }
 
     await project.save();
 
