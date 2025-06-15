@@ -19,6 +19,15 @@ module.exports = (sequelize, DataTypes) => {
         ]]
       }
     },
+    supervision_weeks_target: { //  العدد الإجمالي لأسابيع الإشراف
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    supervision_weeks_completed: { //  عدد الأسابيع التي تم "رفع" تقرير لها
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
     planner5dUrl: { type: DataTypes.TEXT, allowNull: true },
     budget: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     start_date: { type: DataTypes.DATE, allowNull: true },

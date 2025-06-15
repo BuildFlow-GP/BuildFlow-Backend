@@ -1,21 +1,28 @@
 // routes/project.route.js
 const express = require('express');
 const router = express.Router();
-// تأكدي من استيراد كل الموديلات اللازمة
 const { Project, User, Office, Company, Notification, ProjectDesign } = require('../models'); 
 const authenticate = require('../middleware/authenticate');
-const path = require('path'); //  إذا كنتِ لا تزالين تحتاجينه لـ multer
-const multer = require('multer'); //  إذا كنتِ لا تزالين تحتاجينه لـ multer
-const fs = require('fs'); //  إذا كنتِ لا تزالين تحتاجينه لـ multer
+const path = require('path');
+const multer = require('multer'); 
+const fs = require('fs'); 
+
+const commonDocumentFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF and Word documents are allowed.'), false);
+  }
+};
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 
-
-// =====================================================================
-// ✅✅✅  ROUTE جديد: المستخدم يطلب إشرافاً على مشروع قائم  ✅✅✅
-// POST /api/projects/:projectId/request-supervision
-// =====================================================================
 router.post('/:projectId/request-supervision', authenticate, async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId, 10);
@@ -104,11 +111,6 @@ router.post('/:projectId/request-supervision', authenticate, async (req, res) =>
   }
 });
 
-
-// =====================================================================
-// ✅✅✅  ROUTE جديد: المكتب يوافق أو يرفض طلب الإشراف  ✅✅✅
-// PUT /api/projects/:projectId/respond-supervision
-// =====================================================================
 router.put('/:projectId/respond-supervision', authenticate, async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId, 10);
@@ -209,5 +211,82 @@ router.put('/:projectId/respond-supervision', authenticate, async (req, res) => 
   }
 });
 
+function ensureUploadsDirectoryExists(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+const supervisionReportStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = `uploads/supervision_reports/${req.params.projectId}/`;
+    ensureUploadsDirectoryExists(dir); //  تأكدي من وجود هذه الدالة
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    //  يمكن إضافة رقم الأسبوع لاسم الملف إذا أردتِ، ولكن الملف سيُكتب فوقه
+    cb(null, `supervision_report_w${req.body.week_number || 'current'}-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+const uploadSupervisionReport = multer({ storage: supervisionReportStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: commonDocumentFileFilter });
 
+
+router.post('/:projectId/supervision-report', authenticate, uploadSupervisionReport.single('reportFile'), async (req, res) => {
+                                                                       //  'reportFile' هو اسم الحقل من Flutter
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { week_number } = req.body; //  المكتب سيرسل رقم الأسبوع الذي يخصه هذا التقرير
+    const officeId = req.user.id;
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can upload supervision reports.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'No report file uploaded or file type not allowed.' });
+    }
+    if (!week_number || isNaN(parseInt(week_number)) || parseInt(week_number) <= 0) {
+      return res.status(400).json({ message: 'Valid week_number is required.' });
+    }
+
+    const project = await Project.findByPk(projectId);
+    if (!project) {
+      //  احذفي الملف الذي تم رفعه إذا لم يكن هناك مشروع
+      // fs.unlinkSync(req.file.path); 
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.supervising_office_id !== officeId) {
+      // fs.unlinkSync(req.file.path);
+      return res.status(403).json({ message: 'Forbidden: You are not the supervising office for this project.' });
+    }
+    if (parseInt(week_number) > (project.supervision_weeks_target || 0) ) {
+      // fs.unlinkSync(req.file.path);
+      return res.status(400).json({ message: `Week number ${week_number} exceeds target weeks (${project.supervision_weeks_target || 0}).` });
+    }
+
+    const filePath = `${req.file.destination.replace(/^uploads\//i, '')}${req.file.filename}`;
+    
+    //  ✅ تحديث حقل agreement_file (أو حقل آخر مخصص لآخر تقرير)
+    project.agreement_file = filePath; //  أو project.latest_supervision_report_file
+    
+    //  ✅ تحديث عدد الأسابيع المكتملة
+    project.supervision_weeks_completed = parseInt(week_number);
+    
+    //  (اختياري) تحديث progress_stage الكلي إذا كان مختلفاً
+    // project.progress_stage = calculateOverallProgress(project.supervision_weeks_completed, project.supervision_weeks_target);
+
+    await project.save();
+
+    //  TODO: إرسال إشعار للمستخدم بأن تقرير الأسبوع X تم رفعه
+
+    res.json({ 
+      message: `Supervision report for week ${week_number} uploaded successfully.`, 
+      filePath: filePath, //  المسار النسبي للملف
+      project: project //  المشروع المحدث
+    });
+
+  } catch (error) {
+    console.error('Error uploading supervision report:', error);
+    //  ... معالجة الخطأ ...
+    res.status(500).json({ message: 'Failed to upload supervision report.' });
+  }
+});
 module.exports = router;
