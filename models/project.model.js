@@ -28,6 +28,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: 0
     },
+    supervising_office: { type: DataTypes.STRING(150), allowNull: true },
     planner5dUrl: { type: DataTypes.TEXT, allowNull: true },
     budget: { type: DataTypes.DECIMAL(12, 2), allowNull: true },
     start_date: { type: DataTypes.DATE, allowNull: true },
@@ -73,6 +74,8 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'office_id', //  هذا هو FK للمكتب المصمم
       as: 'office'    //  ✅  اسم مستعار واضح: 'office'
     });
+    
+    
 
     // علاقة مع المكتب المشرف
     Project.belongsTo(models.Office, { 

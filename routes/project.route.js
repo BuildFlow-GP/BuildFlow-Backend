@@ -705,6 +705,10 @@ router.post('/:projectId/upload-final2d', authenticate, uploadFinal2D.single('fi
     
     const filePath = `${req.file.destination.replace('uploads/', '')}${req.file.filename}`;
     project.document_2d = filePath; //  تحديث حقل document_2d
+    if (!project.end_date) { //  فقط إذا لم يكن معيناً من قبل
+    project.end_date = new Date(); 
+    project.status = 'Completed'; //  تحديث الحالة إلى 'Final 2D Uploaded' أو الحالة المناسبة
+}
     await project.save();
     //  إرسال إشعار للمستخدم
      if (project.user_id) {
