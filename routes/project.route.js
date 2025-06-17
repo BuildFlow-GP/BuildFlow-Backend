@@ -154,9 +154,11 @@ router.get('/:id', async (req, res) => {
   try {
     const include = [  
       { model: User, as: 'user' },
-      { model: Company, as: 'company' },
       { model: Office, as: 'office' },
-      { model: ProjectDesign, as: 'projectDesign'} //  تضمين تصميم المشروع إذا كان موجوداً
+      { model: Office, as: 'supervisingOffice', required: false },
+     { model: Company, as: 'company', required: false  },
+      { model: ProjectDesign, as: 'projectDesign', required: false  }
+    //  تضمين تصميم المشروع إذا كان موجوداً
     ];
     const project = await Project.findByPk(req.params.id, { include });
     if (!project) return res.status(404).json({ message: 'Project not found' });
@@ -705,6 +707,10 @@ router.post('/:projectId/upload-final2d', authenticate, uploadFinal2D.single('fi
     
     const filePath = `${req.file.destination.replace('uploads/', '')}${req.file.filename}`;
     project.document_2d = filePath; //  تحديث حقل document_2d
+    if (!project.end_date) { //  فقط إذا لم يكن معيناً من قبل
+    project.end_date = new Date(); 
+    project.status = 'Completed'; //  تحديث الحالة إلى 'Final 2D Uploaded' أو الحالة المناسبة
+}
     await project.save();
     //  إرسال إشعار للمستخدم
      if (project.user_id) {
@@ -910,5 +916,61 @@ router.put('/:projectId/progress', authenticate, async (req, res) => {
 });
 
 
+router.put('/:projectId/set-supervision-target', authenticate, async (req, res) => {
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { weeks_target } = req.body; //  نتوقع عدد الأسابيع من الـ body
+    const officeId = req.user.id; // ID المكتب من التوكن
+
+    // 1. التحقق أن المستخدم الحالي هو مكتب
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can set supervision targets.' });
+    }
+
+    // 2. التحقق من أن weeks_target قيمة صالحة
+    if (weeks_target === undefined || weeks_target === null || isNaN(parseInt(weeks_target)) || parseInt(weeks_target) <= 0) {
+      return res.status(400).json({ message: 'Valid positive number of weeks_target is required.' });
+    }
+
+    // 3. جلب المشروع والتحقق منه ومن أن المكتب الحالي هو المكتب المشرف
+    const project = await Project.findByPk(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.supervising_office_id !== officeId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the supervising office for this project.' });
+    }
+
+    // 4. التحقق من أن حالة المشروع تسمح بتحديد التارجت
+    //    (مثلاً، بعد موافقة المكتب على الإشراف وقبل بدء رفع التقارير فعلياً)
+    //    أو يمكن السماح بتعديله في أي وقت إذا كان منطقياً.
+    const allowedStatusForTargetSetting = ['Under Office Supervision' /*, أو أي حالات أخرى */];
+    if (!allowedStatusForTargetSetting.includes(project.status)) {
+      return res.status(400).json({ 
+        message: `Cannot set supervision target. Project status is '${project.status}'. Required status: '${allowedStatusForTargetSetting.join("' or '")}'.` 
+      });
+    }
+
+    // 5. تحديث المشروع
+    project.supervision_weeks_target = parseInt(weeks_target);
+    //  (اختياري) عند تحديد التارجت لأول مرة، قد ترغبين في إعادة تعيين الأسابيع المكتملة إلى 0
+    // project.supervision_weeks_completed = 0; 
+    // project.progress_stage = 0; // أو 1 إذا كانت المرحلة الأولى تبدأ بـ 1
+    await project.save();
+
+    // (اختياري) إرسال إشعار للمستخدم بأن المكتب حدد تارجت الإشراف
+    // ...
+
+    // إرجاع المشروع المحدث
+    const updatedProject = await Project.findByPk(projectId, { /* ... include ... */ });
+    res.status(200).json({ message: 'Supervision target weeks set successfully.', project: updatedProject });
+
+  } catch (error) {
+    console.error('Error setting supervision target:', error);
+    res.status(500).json({ message: 'Failed to set supervision target weeks.' });
+  }
+});
+
 
 module.exports = router;
+

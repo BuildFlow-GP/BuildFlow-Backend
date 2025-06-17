@@ -1,21 +1,29 @@
 // routes/project.route.js
 const express = require('express');
 const router = express.Router();
-// تأكدي من استيراد كل الموديلات اللازمة
 const { Project, User, Office, Company, Notification, ProjectDesign } = require('../models'); 
+const { Op } = require('sequelize');
 const authenticate = require('../middleware/authenticate');
-const path = require('path'); //  إذا كنتِ لا تزالين تحتاجينه لـ multer
-const multer = require('multer'); //  إذا كنتِ لا تزالين تحتاجينه لـ multer
-const fs = require('fs'); //  إذا كنتِ لا تزالين تحتاجينه لـ multer
+const path = require('path');
+const multer = require('multer'); 
+const fs = require('fs'); 
+
+const commonDocumentFileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF and Word documents are allowed.'), false);
+  }
+};
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
 
 
-
-// =====================================================================
-// ✅✅✅  ROUTE جديد: المستخدم يطلب إشرافاً على مشروع قائم  ✅✅✅
-// POST /api/projects/:projectId/request-supervision
-// =====================================================================
 router.post('/:projectId/request-supervision', authenticate, async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId, 10);
@@ -104,11 +112,6 @@ router.post('/:projectId/request-supervision', authenticate, async (req, res) =>
   }
 });
 
-
-// =====================================================================
-// ✅✅✅  ROUTE جديد: المكتب يوافق أو يرفض طلب الإشراف  ✅✅✅
-// PUT /api/projects/:projectId/respond-supervision
-// =====================================================================
 router.put('/:projectId/respond-supervision', authenticate, async (req, res) => {
   try {
     const projectId = parseInt(req.params.projectId, 10);
@@ -208,6 +211,263 @@ router.put('/:projectId/respond-supervision', authenticate, async (req, res) => 
     res.status(500).json({ message: 'Failed to respond to supervision request.' });
   }
 });
+
+function ensureUploadsDirectoryExists(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+const supervisionReportStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = `uploads/supervision_reports/${req.params.projectId}/`;
+    ensureUploadsDirectoryExists(dir); //  تأكدي من وجود هذه الدالة
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    //  يمكن إضافة رقم الأسبوع لاسم الملف إذا أردتِ، ولكن الملف سيُكتب فوقه
+    cb(null, `supervision_report_w${req.body.week_number || 'current'}-${Date.now()}${path.extname(file.originalname)}`);
+  }
+});
+const uploadSupervisionReport = multer({ storage: supervisionReportStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: commonDocumentFileFilter });
+
+
+router.post('/:projectId/supervision-report', authenticate, uploadSupervisionReport.single('reportFile'), async (req, res) => {
+                                                                       //  'reportFile' هو اسم الحقل من Flutter
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { week_number } = req.body; //  المكتب سيرسل رقم الأسبوع الذي يخصه هذا التقرير
+    const officeId = req.user.id;
+
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can upload supervision reports.' });
+    }
+    if (!req.file) {
+      return res.status(400).json({ message: 'No report file uploaded or file type not allowed.' });
+    }
+    if (!week_number || isNaN(parseInt(week_number)) || parseInt(week_number) <= 0) {
+      return res.status(400).json({ message: 'Valid week_number is required.' });
+    }
+
+    const project = await Project.findByPk(projectId);
+    if (!project) {
+      //  احذفي الملف الذي تم رفعه إذا لم يكن هناك مشروع
+      // fs.unlinkSync(req.file.path); 
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.supervising_office_id !== officeId) {
+      // fs.unlinkSync(req.file.path);
+      return res.status(403).json({ message: 'Forbidden: You are not the supervising office for this project.' });
+    }
+    if (parseInt(week_number) > (project.supervision_weeks_target || 0) ) {
+      // fs.unlinkSync(req.file.path);
+      return res.status(400).json({ message: `Week number ${week_number} exceeds target weeks (${project.supervision_weeks_target || 0}).` });
+    }
+
+    const filePath = `${req.file.destination.replace(/^uploads\//i, '')}${req.file.filename}`;
+    
+    //  ✅ تحديث حقل agreement_file (أو حقل آخر مخصص لآخر تقرير)
+    project.agreement_file = filePath; //  أو project.latest_supervision_report_file
+    
+    //  ✅ تحديث عدد الأسابيع المكتملة
+    project.supervision_weeks_completed = parseInt(week_number);
+    
+    //  (اختياري) تحديث progress_stage الكلي إذا كان مختلفاً
+    // project.progress_stage = calculateOverallProgress(project.supervision_weeks_completed, project.supervision_weeks_target);
+
+    await project.save();
+
+    //  TODO: إرسال إشعار للمستخدم بأن تقرير الأسبوع X تم رفعه
+
+    res.json({ 
+      message: `Supervision report for week ${week_number} uploaded successfully.`, 
+      filePath: filePath, //  المسار النسبي للملف
+      project: project //  المشروع المحدث
+    });
+
+  } catch (error) {
+    console.error('Error uploading supervision report:', error);
+    //  ... معالجة الخطأ ...
+    res.status(500).json({ message: 'Failed to upload supervision report.' });
+  }
+});
+
+
+//user
+router.get('/user/supervision', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (req.user.userType.toLowerCase() !== 'individual') { //  أو 'user'
+      return res.status(403).json({ message: "Forbidden: Only for individual users." });
+    }
+
+    const supervisionStatuses = [
+      'Pending Supervision Approval', 'Under Office Supervision',
+      'Supervision Payment Proposed', 'Awaiting Supervision Payment', 'Supervision Completed',
+      'Supervision Request Rejected', 'Supervision Cancelled' //  أضيفي حالات الرفض والإلغاء أيضاً إذا أردتِ عرضها
+    ];
+
+    const projects = await Project.findAll({
+      where: {
+        user_id: userId,
+        status: { [Op.in]: supervisionStatuses } //  Sequelize Op.in
+      },
+      include: [
+        { 
+          model: Office, 
+          as: 'supervisingOffice', //  المكتب المشرف
+          attributes: ['id', 'name', 'profile_image'], //  الحقول المطلوبة
+          required: false //  قد لا يكون هناك مكتب مشرف بعد (Pending Supervision Approval) أو إذا رُفض
+        },
+        // يمكنكِ تضمين المكتب المصمم (designOffice) أو الشركة (assignedCompany) إذا احتجتِ لعرضهم هنا أيضاً
+        // { model: Office, as: 'designOffice', attributes: ['id', 'name'], required: false },
+        // { model: Company, as: 'assignedCompany', attributes: ['id', 'name'], required: false }
+      ],
+      order: [['created_at', 'DESC']] //  أو حسب تاريخ التحديث، أو الحالة
+    });
+
+    //  تنسيق مسارات الصور (إذا لزم الأمر وكان BaseUrl لم يضف بعد)
+    const formattedProjects = projects.map(p => {
+        const projectJson = p.toJSON();
+        if (projectJson.supervisingOffice && projectJson.supervisingOffice.profile_image) {
+            projectJson.supervisingOffice.profile_image = formatImagePath(projectJson.supervisingOffice.profile_image);
+        }
+        // ... (تنسيق صور designOffice و assignedCompany إذا تم تضمينهم)
+        return projectJson;
+    });
+    
+    res.json(formattedProjects);
+
+  } catch (error) {
+    console.error('Error fetching user supervision projects:', error);
+    res.status(500).json({ message: 'Failed to fetch supervision projects.' });
+  }
+});
+
+
+
+//  مكتب
+router.get('/office/supervision', authenticate, async (req, res) => { // أو /supervised-by-me
+  try {
+    const officeId = req.user.id; // ID المكتب من التوكن
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: "Forbidden: Only for offices." });
+    }
+
+    //  يمكنكِ أيضاً فلترة بالحالة إذا أردتِ (مثلاً، عدم عرض المشاريع الملغاة أو المكتملة جداً)
+    // const supervisionStatuses = [
+    //   'Pending Supervision Approval', 'Under Office Supervision',
+    //   'Supervision Payment Proposed', 'Awaiting Supervision Payment', 'Supervision Completed'
+    // ];
+
+    const projects = await Project.findAll({
+      where: {
+        supervising_office_id: officeId,
+        // status: { [Op.in]: supervisionStatuses } //  فلترة بالحالة (اختياري)
+      },
+      include: [
+        { 
+          model: User, 
+          as: 'user', //  مالك المشروع
+          attributes: ['id', 'name', 'profile_image'], //  الحقول المطلوبة
+          required: true //  نفترض أن كل مشروع إشراف له مستخدم
+        },
+        // يمكنكِ تضمين المكتب المصمم (designOffice) أو الشركة (assignedCompany) إذا احتجتِ لعرضهم هنا أيضاً
+      ],
+      order: [['created_at', 'DESC']] //  أو created_at، أو status
+    });
+    
+    //  تنسيق مسارات الصور
+    const formattedProjects = projects.map(p => {
+        const projectJson = p.toJSON();
+        if (projectJson.user && projectJson.user.profile_image) {
+            projectJson.user.profile_image = formatImagePath(projectJson.user.profile_image);
+        }
+        return projectJson;
+    });
+
+    res.json(formattedProjects);
+
+  } catch (error) {
+    console.error('Error fetching office assigned supervision projects:', error);
+    res.status(500).json({ message: 'Failed to fetch assigned supervision projects.' });
+  }
+});
+
+
+//  شركة
+router.get('/company/supervision', authenticate, async (req, res) => {
+  try {
+    const companyId = req.user.id; // ID الشركة من التوكن
+    if (req.user.userType.toLowerCase() !== 'company') {
+      return res.status(403).json({ message: "Forbidden: Only for companies." });
+    }
+
+    //  حالات الإشراف التي تهم الشركة المنفذة
+    //  (عادةً عندما يكون المشروع تحت الإشراف فعلياً أو مكتمل الإشراف)
+    const relevantSupervisionStatuses = [
+      'Under Office Supervision',
+      'Supervision Payment Proposed', //  قد تحتاج الشركة لمعرفة هذا
+      'Awaiting Supervision Payment', //  قد تحتاج الشركة لمعرفة هذا
+      'Supervision Completed'
+      //  قد لا تهم الشركة حالات مثل 'Pending Supervision Approval' إذا لم تكن طرفاً فيها بعد
+    ];
+
+    const projects = await Project.findAll({
+      where: {
+        assigned_company_id: companyId,
+        status: { [Op.in]: relevantSupervisionStatuses } //  فلترة بالحالات ذات الصلة
+      },
+      include: [
+        { 
+          model: User, 
+          as: 'user', //  مالك المشروع
+          attributes: ['id', 'name', 'profile_image'],
+          required: true 
+        },
+        { 
+          model: Office, 
+          as: 'supervisingOffice', //  المكتب المشرف (مهم للشركة)
+          attributes: ['id', 'name', 'profile_image'],
+          required: false //  قد يكون true إذا كانت كل المشاريع هنا يجب أن يكون لها مشرف
+        },
+        { 
+          model: Office, 
+          as: 'office', //  المكتب المصمم (اختياري، قد يكون مفيداً)
+          attributes: ['id', 'name'],
+          required: false
+        }
+        // لا نحتاج لتضمين assignedCompany هنا لأننا نبحث بناءً عليه
+      ],
+      order: [['updated_at', 'DESC']]
+    });
+    
+    //  تنسيق مسارات الصور
+    const formattedProjects = projects.map(p => {
+        const projectJson = p.toJSON();
+        if (projectJson.user && projectJson.user.profile_image) {
+            projectJson.user.profile_image = formatImagePath(projectJson.user.profile_image);
+        }
+        if (projectJson.supervisingOffice && projectJson.supervisingOffice.profile_image) {
+            projectJson.supervisingOffice.profile_image = formatImagePath(projectJson.supervisingOffice.profile_image);
+        }
+        if (projectJson.designOffice && projectJson.designOffice.profile_image) {
+            projectJson.designOffice.profile_image = formatImagePath(projectJson.designOffice.profile_image);
+        }
+        return projectJson;
+    });
+
+    res.json(formattedProjects);
+
+  } catch (error) {
+    console.error('Error fetching company assigned supervision projects:', error);
+    res.status(500).json({ message: 'Failed to fetch assigned supervision projects for company.' });
+  }
+});
+
+//  لا تنسي Op و formatImagePath إذا كانت formatImagePath معرفة محلياً
+// module.exports = router;
+
+const formatImagePath = (imagePath) => imagePath && !imagePath.startsWith('http') ? `${BASE_URL}/${imagePath.replace(/\\/g, '/')}` : imagePath;
 
 
 module.exports = router;
