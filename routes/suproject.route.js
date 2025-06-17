@@ -217,20 +217,38 @@ function ensureUploadsDirectoryExists(dir) {
     fs.mkdirSync(dir, { recursive: true });
   }
 }
+
+// ... (في نفس ملف routes/project.route.js أو ملف إعدادات multer)
 const supervisionReportStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = `uploads/supervision_reports/${req.params.projectId}/`;
-    ensureUploadsDirectoryExists(dir); //  تأكدي من وجود هذه الدالة
+        const dir = `uploads/supervision_reports/${req.params.projectId}/`;
+
+   // const dir = `uploads/agreements/`;
+    ensureUploadsDirectoryExists(dir); //  تأكدي أن هذه الدالة موجودة وتعمل
     cb(null, dir);
   },
   filename: function (req, file, cb) {
-    //  يمكن إضافة رقم الأسبوع لاسم الملف إذا أردتِ، ولكن الملف سيُكتب فوقه
-    cb(null, `supervision_report_w${req.body.week_number || 'current'}-${Date.now()}${path.extname(file.originalname)}`);
+    //  يمكنكِ تضمين week_number في اسم الملف إذا أردتِ
+    const weekNumber = req.body.week_number || 'unknown_week';
+    cb(null, `report-week${weekNumber}-${Date.now()}${path.extname(file.originalname)}`);
   }
 });
-const uploadSupervisionReport = multer({ storage: supervisionReportStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: commonDocumentFileFilter });
 
+const supervisionReportFileFilter = (req, file, cb) => {
+  //  حددي أنواع الملفات المسموح بها للتقارير (PDF, DOCX, إلخ)
+  const allowedMimeTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type for supervision report. Allowed: PDF, DOCX, JPG, PNG.'), false);
+  }
+};
 
+const uploadSupervisionReport = multer({ 
+  storage: supervisionReportStorage, 
+  limits: { fileSize: 20 * 1024 * 1024 }, //  حددي الحجم المناسب
+  fileFilter: supervisionReportFileFilter 
+});
 router.post('/:projectId/supervision-report', authenticate, uploadSupervisionReport.single('reportFile'), async (req, res) => {
                                                                        //  'reportFile' هو اسم الحقل من Flutter
   try {
@@ -263,10 +281,10 @@ router.post('/:projectId/supervision-report', authenticate, uploadSupervisionRep
       return res.status(400).json({ message: `Week number ${week_number} exceeds target weeks (${project.supervision_weeks_target || 0}).` });
     }
 
-    const filePath = `${req.file.destination.replace(/^uploads\//i, '')}${req.file.filename}`;
+    // const filePath = `${req.file.destination.replace(/^uploads\//i, '')}${req.file.filename}`;
     
-    //  ✅ تحديث حقل agreement_file (أو حقل آخر مخصص لآخر تقرير)
-    project.agreement_file = filePath; //  أو project.latest_supervision_report_file
+    // //  ✅ تحديث حقل agreement_file (أو حقل آخر مخصص لآخر تقرير)
+    // project.agreement_file = filePath; //  أو project.latest_supervision_report_file
     
     //  ✅ تحديث عدد الأسابيع المكتملة
     project.supervision_weeks_completed = parseInt(week_number);
@@ -280,7 +298,7 @@ router.post('/:projectId/supervision-report', authenticate, uploadSupervisionRep
 
     res.json({ 
       message: `Supervision report for week ${week_number} uploaded successfully.`, 
-      filePath: filePath, //  المسار النسبي للملف
+  //    filePath: filePath, //  المسار النسبي للملف
       project: project //  المشروع المحدث
     });
 
@@ -464,8 +482,75 @@ router.get('/company/supervision', authenticate, async (req, res) => {
   }
 });
 
-//  لا تنسي Op و formatImagePath إذا كانت formatImagePath معرفة محلياً
-// module.exports = router;
+
+router.put('/:projectId/set-supervision-target', authenticate, async (req, res) => {
+
+    
+     console.log("--- Set Supervision Target ---"); //  للتتبع
+  console.log("Received req.params:", req.params);
+  console.log("Received req.body:", req.body);    //  ✅✅✅ اطبعي هذا ✅✅✅
+  console.log("User making request:", req.user);  //  للتأكد من معلومات المكتب
+  
+  try {
+    const projectId = parseInt(req.params.projectId, 10);
+    const { supervision_weeks_target  } = req.body; 
+    const officeId = req.user.id;
+
+    // 1. التحقق أن المستخدم الحالي هو مكتب
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: 'Forbidden: Only offices can set supervision targets.' });
+    }
+
+    // 2. التحقق من أن weeks_target قيمة صالحة
+    console.log(`Value of weeks_target from body: ${supervision_weeks_target }, type: ${typeof supervision_weeks_target }`); //  ✅✅✅
+    const parsedWeeks = parseInt(supervision_weeks_target , 10); //  حاولي التحويل مرة واحدة
+    console.log(`Parsed weeks: ${parsedWeeks}`); //  ✅✅✅
+
+    if (supervision_weeks_target === undefined || supervision_weeks_target === null || isNaN(parsedWeeks) || parsedWeeks <= 0) {
+      console.log("Validation failed for weeks_target."); //  ✅✅✅
+      return res.status(400).json({ message: 'Valid positive number of weeks target is required.' });
+    }
+   
+    
+    // 3. جلب المشروع والتحقق منه ومن أن المكتب الحالي هو المكتب المشرف
+    const project = await Project.findByPk(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+    if (project.supervising_office_id !== officeId) {
+      return res.status(403).json({ message: 'Forbidden: You are not the supervising office for this project.' });
+    }
+
+    // 4. التحقق من أن حالة المشروع تسمح بتحديد التارجت
+    //    (مثلاً، بعد موافقة المكتب على الإشراف وقبل بدء رفع التقارير فعلياً)
+    //    أو يمكن السماح بتعديله في أي وقت إذا كان منطقياً.
+    const allowedStatusForTargetSetting = ['Under Office Supervision' /*, أو أي حالات أخرى */];
+    if (!allowedStatusForTargetSetting.includes(project.status)) {
+      return res.status(400).json({ 
+        message: `Cannot set supervision target. Project status is '${project.status}'. Required status: '${allowedStatusForTargetSetting.join("' or '")}'.` 
+      });
+    }
+
+    // 5. تحديث المشروع
+    project.supervision_weeks_target = parseInt(supervision_weeks_target );
+    //  (اختياري) عند تحديد التارجت لأول مرة، قد ترغبين في إعادة تعيين الأسابيع المكتملة إلى 0
+    // project.supervision_weeks_completed = 0; 
+    // project.progress_stage = 0; // أو 1 إذا كانت المرحلة الأولى تبدأ بـ 1
+    await project.save();
+
+    // (اختياري) إرسال إشعار للمستخدم بأن المكتب حدد تارجت الإشراف
+    // ...
+
+    // إرجاع المشروع المحدث
+    const updatedProject = await Project.findByPk(projectId, { /* ... include ... */ });
+    res.status(200).json({ message: 'Supervision target weeks set successfully.', project: updatedProject });
+
+  } catch (error) {
+    console.error('Error setting supervision target:', error);
+    res.status(500).json({ message: 'Failed to set supervision target weeks.' });
+  }
+});
+
 
 const formatImagePath = (imagePath) => imagePath && !imagePath.startsWith('http') ? `${BASE_URL}/${imagePath.replace(/\\/g, '/')}` : imagePath;
 
