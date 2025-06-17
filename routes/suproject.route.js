@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { Project, User, Office, Company, Notification, ProjectDesign } = require('../models'); 
+const { Op } = require('sequelize');
 const authenticate = require('../middleware/authenticate');
 const path = require('path');
 const multer = require('multer'); 
@@ -289,4 +290,184 @@ router.post('/:projectId/supervision-report', authenticate, uploadSupervisionRep
     res.status(500).json({ message: 'Failed to upload supervision report.' });
   }
 });
+
+
+//user
+router.get('/me/projects/supervision', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (req.user.userType.toLowerCase() !== 'individual') { //  أو 'user'
+      return res.status(403).json({ message: "Forbidden: Only for individual users." });
+    }
+
+    const supervisionStatuses = [
+      'Pending Supervision Approval', 'Under Office Supervision',
+      'Supervision Payment Proposed', 'Awaiting Supervision Payment', 'Supervision Completed',
+      'Supervision Request Rejected', 'Supervision Cancelled' //  أضيفي حالات الرفض والإلغاء أيضاً إذا أردتِ عرضها
+    ];
+
+    const projects = await Project.findAll({
+      where: {
+        user_id: userId,
+        status: { [Op.in]: supervisionStatuses } //  Sequelize Op.in
+      },
+      include: [
+        { 
+          model: Office, 
+          as: 'supervisingOffice', //  المكتب المشرف
+          attributes: ['id', 'name', 'profile_image'], //  الحقول المطلوبة
+          required: false //  قد لا يكون هناك مكتب مشرف بعد (Pending Supervision Approval) أو إذا رُفض
+        },
+        // يمكنكِ تضمين المكتب المصمم (designOffice) أو الشركة (assignedCompany) إذا احتجتِ لعرضهم هنا أيضاً
+        // { model: Office, as: 'designOffice', attributes: ['id', 'name'], required: false },
+        // { model: Company, as: 'assignedCompany', attributes: ['id', 'name'], required: false }
+      ],
+      order: [['created_at', 'DESC']] //  أو حسب تاريخ التحديث، أو الحالة
+    });
+
+    //  تنسيق مسارات الصور (إذا لزم الأمر وكان BaseUrl لم يضف بعد)
+    const formattedProjects = projects.map(p => {
+        const projectJson = p.toJSON();
+        if (projectJson.supervisingOffice && projectJson.supervisingOffice.profile_image) {
+            projectJson.supervisingOffice.profile_image = formatImagePath(projectJson.supervisingOffice.profile_image);
+        }
+        // ... (تنسيق صور designOffice و assignedCompany إذا تم تضمينهم)
+        return projectJson;
+    });
+    
+    res.json(formattedProjects);
+
+  } catch (error) {
+    console.error('Error fetching user supervision projects:', error);
+    res.status(500).json({ message: 'Failed to fetch supervision projects.' });
+  }
+});
+
+
+
+//  مكتب
+router.get('/me/projects/supervision', authenticate, async (req, res) => { // أو /supervised-by-me
+  try {
+    const officeId = req.user.id; // ID المكتب من التوكن
+    if (req.user.userType.toLowerCase() !== 'office') {
+      return res.status(403).json({ message: "Forbidden: Only for offices." });
+    }
+
+    //  يمكنكِ أيضاً فلترة بالحالة إذا أردتِ (مثلاً، عدم عرض المشاريع الملغاة أو المكتملة جداً)
+    // const supervisionStatuses = [
+    //   'Pending Supervision Approval', 'Under Office Supervision',
+    //   'Supervision Payment Proposed', 'Awaiting Supervision Payment', 'Supervision Completed'
+    // ];
+
+    const projects = await Project.findAll({
+      where: {
+        supervising_office_id: officeId,
+        // status: { [Op.in]: supervisionStatuses } //  فلترة بالحالة (اختياري)
+      },
+      include: [
+        { 
+          model: User, 
+          as: 'user', //  مالك المشروع
+          attributes: ['id', 'name', 'profile_image'], //  الحقول المطلوبة
+          required: true //  نفترض أن كل مشروع إشراف له مستخدم
+        },
+        // يمكنكِ تضمين المكتب المصمم (designOffice) أو الشركة (assignedCompany) إذا احتجتِ لعرضهم هنا أيضاً
+      ],
+      order: [['updated_at', 'DESC']] //  أو created_at، أو status
+    });
+    
+    //  تنسيق مسارات الصور
+    const formattedProjects = projects.map(p => {
+        const projectJson = p.toJSON();
+        if (projectJson.user && projectJson.user.profile_image) {
+            projectJson.user.profile_image = formatImagePath(projectJson.user.profile_image);
+        }
+        return projectJson;
+    });
+
+    res.json(formattedProjects);
+
+  } catch (error) {
+    console.error('Error fetching office assigned supervision projects:', error);
+    res.status(500).json({ message: 'Failed to fetch assigned supervision projects.' });
+  }
+});
+
+
+//  شركة
+router.get('/me/projects/supervision', authenticate, async (req, res) => {
+  try {
+    const companyId = req.user.id; // ID الشركة من التوكن
+    if (req.user.userType.toLowerCase() !== 'company') {
+      return res.status(403).json({ message: "Forbidden: Only for companies." });
+    }
+
+    //  حالات الإشراف التي تهم الشركة المنفذة
+    //  (عادةً عندما يكون المشروع تحت الإشراف فعلياً أو مكتمل الإشراف)
+    const relevantSupervisionStatuses = [
+      'Under Office Supervision',
+      'Supervision Payment Proposed', //  قد تحتاج الشركة لمعرفة هذا
+      'Awaiting Supervision Payment', //  قد تحتاج الشركة لمعرفة هذا
+      'Supervision Completed'
+      //  قد لا تهم الشركة حالات مثل 'Pending Supervision Approval' إذا لم تكن طرفاً فيها بعد
+    ];
+
+    const projects = await Project.findAll({
+      where: {
+        assigned_company_id: companyId,
+        status: { [Op.in]: relevantSupervisionStatuses } //  فلترة بالحالات ذات الصلة
+      },
+      include: [
+        { 
+          model: User, 
+          as: 'user', //  مالك المشروع
+          attributes: ['id', 'name', 'profile_image'],
+          required: true 
+        },
+        { 
+          model: Office, 
+          as: 'supervisingOffice', //  المكتب المشرف (مهم للشركة)
+          attributes: ['id', 'name', 'profile_image'],
+          required: false //  قد يكون true إذا كانت كل المشاريع هنا يجب أن يكون لها مشرف
+        },
+        { 
+          model: Office, 
+          as: 'office', //  المكتب المصمم (اختياري، قد يكون مفيداً)
+          attributes: ['id', 'name'],
+          required: false
+        }
+        // لا نحتاج لتضمين assignedCompany هنا لأننا نبحث بناءً عليه
+      ],
+      order: [['updated_at', 'DESC']]
+    });
+    
+    //  تنسيق مسارات الصور
+    const formattedProjects = projects.map(p => {
+        const projectJson = p.toJSON();
+        if (projectJson.user && projectJson.user.profile_image) {
+            projectJson.user.profile_image = formatImagePath(projectJson.user.profile_image);
+        }
+        if (projectJson.supervisingOffice && projectJson.supervisingOffice.profile_image) {
+            projectJson.supervisingOffice.profile_image = formatImagePath(projectJson.supervisingOffice.profile_image);
+        }
+        if (projectJson.designOffice && projectJson.designOffice.profile_image) {
+            projectJson.designOffice.profile_image = formatImagePath(projectJson.designOffice.profile_image);
+        }
+        return projectJson;
+    });
+
+    res.json(formattedProjects);
+
+  } catch (error) {
+    console.error('Error fetching company assigned supervision projects:', error);
+    res.status(500).json({ message: 'Failed to fetch assigned supervision projects for company.' });
+  }
+});
+
+//  لا تنسي Op و formatImagePath إذا كانت formatImagePath معرفة محلياً
+// module.exports = router;
+
+const formatImagePath = (imagePath) => imagePath && !imagePath.startsWith('http') ? `${BASE_URL}/${imagePath.replace(/\\/g, '/')}` : imagePath;
+
+
 module.exports = router;
