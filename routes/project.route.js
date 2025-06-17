@@ -154,9 +154,11 @@ router.get('/:id', async (req, res) => {
   try {
     const include = [  
       { model: User, as: 'user' },
-      { model: Company, as: 'company' },
       { model: Office, as: 'office' },
-      { model: ProjectDesign, as: 'projectDesign'} //  تضمين تصميم المشروع إذا كان موجوداً
+      { model: Office, as: 'supervisingOffice', required: false },
+     { model: Company, as: 'company', required: false  },
+      { model: ProjectDesign, as: 'projectDesign', required: false  }
+    //  تضمين تصميم المشروع إذا كان موجوداً
     ];
     const project = await Project.findByPk(req.params.id, { include });
     if (!project) return res.status(404).json({ message: 'Project not found' });

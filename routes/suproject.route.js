@@ -293,7 +293,7 @@ router.post('/:projectId/supervision-report', authenticate, uploadSupervisionRep
 
 
 //user
-router.get('/me/projects/supervision', authenticate, async (req, res) => {
+router.get('/user/supervision', authenticate, async (req, res) => {
   try {
     const userId = req.user.id;
     if (req.user.userType.toLowerCase() !== 'individual') { //  أو 'user'
@@ -346,7 +346,7 @@ router.get('/me/projects/supervision', authenticate, async (req, res) => {
 
 
 //  مكتب
-router.get('/me/projects/supervision', authenticate, async (req, res) => { // أو /supervised-by-me
+router.get('/office/supervision', authenticate, async (req, res) => { // أو /supervised-by-me
   try {
     const officeId = req.user.id; // ID المكتب من التوكن
     if (req.user.userType.toLowerCase() !== 'office') {
@@ -373,7 +373,7 @@ router.get('/me/projects/supervision', authenticate, async (req, res) => { // أ
         },
         // يمكنكِ تضمين المكتب المصمم (designOffice) أو الشركة (assignedCompany) إذا احتجتِ لعرضهم هنا أيضاً
       ],
-      order: [['updated_at', 'DESC']] //  أو created_at، أو status
+      order: [['created_at', 'DESC']] //  أو created_at، أو status
     });
     
     //  تنسيق مسارات الصور
@@ -395,7 +395,7 @@ router.get('/me/projects/supervision', authenticate, async (req, res) => { // أ
 
 
 //  شركة
-router.get('/me/projects/supervision', authenticate, async (req, res) => {
+router.get('/company/supervision', authenticate, async (req, res) => {
   try {
     const companyId = req.user.id; // ID الشركة من التوكن
     if (req.user.userType.toLowerCase() !== 'company') {

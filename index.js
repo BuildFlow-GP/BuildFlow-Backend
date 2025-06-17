@@ -54,7 +54,7 @@ app.use('/api/favorites', userFavoritesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/documents', documentRoutes); 
-app.use('/api/projects', supervisingOfficeRoutes); // إذا كان لديك مسار لمكتب الإشراف
+app.use('/api/projects', supervisingOfficeRoutes); 
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
