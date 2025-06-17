@@ -321,7 +321,7 @@ router.get('/user/supervision', authenticate, async (req, res) => {
     const supervisionStatuses = [
       'Pending Supervision Approval', 'Under Office Supervision',
       'Supervision Payment Proposed', 'Awaiting Supervision Payment', 'Supervision Completed',
-      'Supervision Request Rejected', 'Supervision Cancelled' //  أضيفي حالات الرفض والإلغاء أيضاً إذا أردتِ عرضها
+      'Supervision Request Rejected', 'Supervision Cancelled', 'Payment Proposal Sent' //  أضيفي حالات الرفض والإلغاء أيضاً إذا أردتِ عرضها
     ];
 
     const projects = await Project.findAll({
@@ -360,7 +360,6 @@ router.get('/user/supervision', authenticate, async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch supervision projects.' });
   }
 });
-
 
 
 //  مكتب

@@ -79,6 +79,37 @@ router.get('/agreementdocument', /* authenticate, */ async (req, res) => {
   }
 });
 
+router.get('/2ddocument', /* authenticate, */ async (req, res) => {
+  try {
+    //  اسم الملف الثابت ومساره النسبي داخل مجلد uploads
+    const fixedRelativePath = '2d/final2dFile.pdf'; 
+    const absoluteFilePath = path.join(UPLOADS_DIR, fixedRelativePath);
+
+    console.log(`Attempting to open file: ${absoluteFilePath}`); //  للتأكد من المسار
+
+    // التحقق من وجود الملف
+    if (fs.existsSync(absoluteFilePath)) {
+      //  إرسال الملف
+      res.sendFile(absoluteFilePath, (err) => {
+        if (err) {
+          console.error(`Error sending file ${absoluteFilePath}:`, err);
+          if (!res.headersSent) {
+            res.status(err.status || 500).json({ message: 'Error sending file.' });
+          }
+        } else {
+          console.log(`Successfully sent file: ${absoluteFilePath}`);
+        }
+      });
+    } else {
+      console.warn(`File not found at: ${absoluteFilePath}`);
+      res.status(404).json({ message: 'PDF file not found.' });
+    }
+  } catch (error) {
+    console.error('Error in file serving route:', error);
+    res.status(500).json({ message: 'Server error while trying to serve the file.' });
+  }
+});
+
 
 //  إذا كنتِ قد أضفتِ الـ wildcard route سابقاً، علقيه مؤقتاً أثناء هذا الاختبار
 // router.get('/*', authenticate, async (req, res) => { /* ... */ });
