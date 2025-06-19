@@ -36,7 +36,7 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 5MB حد أقصى
+    limits: { fileSize: 20 * 1024 * 1024 }, // 5MB حد أقصى
     fileFilter: fileFilter
 });
 
@@ -491,7 +491,7 @@ router.post('/:projectId/upload-agreement', authenticate, upload.single('agreeme
         return res.status(400).json({ message: error.message });
     }
     if (error.code === 'LIMIT_FILE_SIZE') { // خطأ من multer بسبب حجم الملف
-        return res.status(400).json({ message: 'File too large. Max 5MB allowed.' });
+        return res.status(400).json({ message: 'File too large. Max 20MB allowed.' });
     }
     res.status(500).json({ message: 'Failed to upload agreement file.' });
   }
