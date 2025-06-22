@@ -13,6 +13,8 @@ const projectDesignsRoutes = require('./routes/projectDesign.route');
 const userFavoritesRoutes = require('./routes/userFav.route');
 const notificationRoutes = require('./routes/notifications.route');
 const paymentRoutes = require('./routes/payment.route');
+const documentRoutes = require('./routes/document.route'); 
+const supervisingOfficeRoutes = require('./routes/suproject.route'); // إذا كان لديك مسار لمكتب الإشراف
 const cors = require('cors');
 const path = require('path');
 
@@ -51,6 +53,8 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/favorites', userFavoritesRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/documents', documentRoutes); 
+app.use('/api/projects', supervisingOfficeRoutes); 
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
