@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const app = express();
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5000';
+
 const authRoutes = require('./routes/sign.route');
 const profileRoute = require('./routes/profile.route');
 const officeRoutes = require('./routes/office.route');
@@ -57,4 +59,6 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/projects', supervisingOfficeRoutes); 
 
 const PORT = process.env.PORT || 5000;
+
+console.log(`baseURL:${BASE_URL}`)
 app.listen(PORT, '0.0.0.0', () => console.log(`✅ Server running on port ${PORT}`));
