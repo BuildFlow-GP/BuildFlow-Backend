@@ -490,7 +490,7 @@ router.post('/:projectId/upload-agreement', authenticate, upload.single('agreeme
     if (error.message && error.message.includes('Only PDF files are allowed!')) {
         return res.status(400).json({ message: error.message });
     }
-    if (error.code === 'LIMIT_FILE_SIZE') { // خطأ من multer بسبب حجم الملف
+    if (error.code === 'LIMIT_FILE_SIZE') { 
         return res.status(400).json({ message: 'File too large. Max 20MB allowed.' });
     }
     res.status(500).json({ message: 'Failed to upload agreement file.' });
