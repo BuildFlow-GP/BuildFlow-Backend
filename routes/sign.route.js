@@ -133,7 +133,9 @@ const userWithImage = {
 
 
     const token = generateToken(user.id, userType);
-
+    console.log('sign in successful', userType, user.id);
+   // console.log('token=', token);
+    console.log('BASE_URL=', BASE_URL);
     res.json({
       message: 'Login successful',
       token,
